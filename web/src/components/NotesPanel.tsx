@@ -2,19 +2,25 @@ import { useEffect, useRef, useState } from "react";
 
 const STORAGE_PREFIX = "firstline-notes-";
 
+function readNotes(sessionId: string): string {
+  try {
+    return localStorage.getItem(STORAGE_PREFIX + sessionId) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function NotesPanel({ sessionId }: { sessionId: string }) {
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(() => readNotes(sessionId));
   const [saved, setSaved] = useState(false);
+  const [activeId, setActiveId] = useState(sessionId);
   const timer = useRef<number | null>(null);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_PREFIX + sessionId);
-      if (raw) setNotes(raw);
-    } catch {
-      /* ignore */
-    }
-  }, [sessionId]);
+  if (activeId !== sessionId) {
+    setActiveId(sessionId);
+    setNotes(readNotes(sessionId));
+    setSaved(false);
+  }
 
   function onChange(value: string) {
     setNotes(value);

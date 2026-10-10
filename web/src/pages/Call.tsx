@@ -34,6 +34,7 @@ export function Call() {
   const [rememberedFacts] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pausedRef = useRef(false);
 
   const callerTurns = useMemo(
     () => turns.filter((t) => t.speaker === "caller"),
@@ -46,6 +47,21 @@ export function Call() {
       : null;
 
   useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
+    function playOpening(seq: number) {
+      if (pausedRef.current) return;
+      const url = api.audioUrl(id, seq);
+      if (audioRef.current) audioRef.current.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      void audio.play().catch(() => {
+        // Autoplay often blocked until a user gesture; transcript remains primary.
+      });
+    }
+
     void (async () => {
       const data = await api.getSession(id);
       setSession(data.session);
@@ -60,7 +76,7 @@ export function Call() {
         /* optional enrichment */
       }
       const opening = data.turns.find((t) => t.speaker === "caller");
-      if (opening?.audioUrl) playAudio(opening.seq);
+      if (opening?.audioUrl) playOpening(opening.seq);
     })().catch((e) => setToast((e as Error).message));
   }, [id]);
 
@@ -69,7 +85,7 @@ export function Call() {
   }, [turns]);
 
   function playAudio(seq: number) {
-    if (paused) return;
+    if (pausedRef.current) return;
     const url = api.audioUrl(id, seq);
     if (audioRef.current) {
       audioRef.current.pause();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChecklistProgress } from "../ui";
 import { cn } from "../ui/cn";
 
@@ -30,22 +30,31 @@ type AreaId = (typeof RISK_AREAS)[number]["id"];
 
 const STORAGE_PREFIX = "firstline-risk-";
 
-export function RiskChecklist({ sessionId }: { sessionId: string }) {
-  const [checked, setChecked] = useState<Record<AreaId, boolean>>({
-    desire: false,
-    intent: false,
-    capability: false,
-    buffers: false,
-  });
+const EMPTY: Record<AreaId, boolean> = {
+  desire: false,
+  intent: false,
+  capability: false,
+  buffers: false,
+};
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_PREFIX + sessionId);
-      if (raw) setChecked(JSON.parse(raw) as Record<AreaId, boolean>);
-    } catch {
-      /* ignore */
-    }
-  }, [sessionId]);
+function readChecked(sessionId: string): Record<AreaId, boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + sessionId);
+    if (raw) return { ...EMPTY, ...(JSON.parse(raw) as Record<AreaId, boolean>) };
+  } catch {
+    /* ignore */
+  }
+  return { ...EMPTY };
+}
+
+export function RiskChecklist({ sessionId }: { sessionId: string }) {
+  const [checked, setChecked] = useState(() => readChecked(sessionId));
+  const [activeId, setActiveId] = useState(sessionId);
+
+  if (activeId !== sessionId) {
+    setActiveId(sessionId);
+    setChecked(readChecked(sessionId));
+  }
 
   function toggle(id: AreaId) {
     setChecked((prev) => {
