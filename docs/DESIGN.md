@@ -8,6 +8,18 @@
 **Target tracks:** MLH Best Use of Gemini API · MLH Best Use of ElevenLabs · Best Use of Backboard · *(optional)* Best Use of Tiger Data
 **Status:** Design doc v1, written at kickoff (~2 PM CT Saturday). "SteadyLine" is a working name; rename freely.
 
+## Differentiators (decided)
+
+*Decided Saturday afternoon (Oct 10). The build spec for the coding agent, with exact contracts and milestones, is [AGENT_BUILD.md](AGENT_BUILD.md); it wins over this doc wherever they differ.*
+
+1. **Live distress meter (primary, MVP).** The caller has a numeric emotional state: **distress 0–100** (plus trust 0–100). Gemini returns the new state in its structured JSON on every turn (`caller_line`, `emotion`, `distress`, `trust`, `revealed_warning_signs`, `should_end_call`). The server clamps it (±20 per turn) and persists it on each `turns` row, and the call screen shows a live meter with a sparkline. The debrief graphs the distress curve. **Extension E2:** the ElevenLabs voice delivery changes with distress (voice settings such as stability/style/speed, plus audio tags on models that support them).
+2. **Callers who remember (Extension E1).** Backboard memory per (trainee, caller) pair, so a returning caller references earlier calls. A Backboard smoke test ships in M0, and memory sits behind a `CallerMemory` interface with a no-op default so it plugs in cleanly.
+3. **Replay and rewind (stretch, Extension E4).** Jump to a turn in a past session, try a different response, and branch from that turn's stored state.
+
+**MVP (in build order):** text call loop → push-to-talk voice (ElevenLabs STT + TTS) → distress number + basic meter → post-call scoring/debrief, with every session saved to Postgres. **Extensions, in priority order:** E1 Backboard callback memory, E2 distress-driven voice, E3 gamification/leaderboard, E4 replay. Anything else in this doc (achievements, tiers/unlocks, full-duplex voice, Tiger Data) is cut unless the MVP and extensions are done.
+
+**Code structure:** clear module boundaries with owners. `/web` is UI only and talks only to our REST API. `/server/src/routes` is thin HTTP, `services` handles call orchestration, `ai` holds the Gemini caller + scorer, `voice` the ElevenLabs adapter, `memory` the Backboard adapter (no-op default), and `db` the schema, repository, and hand-written queries. `/shared/types` is the one source of truth for JSON contracts. Every adapter has a mock so the three of us can work in parallel. See AGENT_BUILD.md §2 and §9.
+
 ---
 
 ## Table of contents
