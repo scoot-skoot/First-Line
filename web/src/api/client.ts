@@ -75,9 +75,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
-  postAudioTurn: async (id: string, blob: Blob) => {
+  postAudioTurn: async (
+    id: string,
+    blob: Blob,
+    opts?: { bargeIn?: boolean; bargeInFromSeq?: number | null },
+  ) => {
     const form = new FormData();
     form.append("audio", blob, "turn.webm");
+    if (opts?.bargeIn) form.append("bargeIn", "true");
+    if (opts?.bargeInFromSeq != null) {
+      form.append("bargeInFromSeq", String(opts.bargeInFromSeq));
+    }
     return request<{
       traineeTurn: TurnView;
       callerTurn: CallerTurnView;

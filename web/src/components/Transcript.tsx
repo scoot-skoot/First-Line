@@ -56,6 +56,12 @@ export function Transcript({
                 {t.safetyFallback ? (
                   <span className="text-amber-700">· fallback</span>
                 ) : null}
+                {t.interrupted ? (
+                  <span className="text-amber-700">
+                    · interrupted
+                    {t.interruptionKind ? ` (${t.interruptionKind})` : ""}
+                  </span>
+                ) : null}
               </div>
               <p className="text-[15px] leading-relaxed text-ink">{t.text}</p>
             </div>
