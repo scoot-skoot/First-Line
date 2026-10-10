@@ -1,20 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --color-console-950: #0a1218;
-  --color-console-900: #0f1c26;
-  --color-console-800: #152836;
-  --color-console-700: #1e3a4c;
-  --color-console-600: #2a5168;
-  --color-signal: #3ecf8e;
-  --color-signal-dim: #1f7a52;
-  --color-amber: #e8a838;
-  --color-alert: #e85d4c;
-  --color-ink: #d7e4ee;
-  --color-ink-muted: #8aa0b2;
-  --color-line: #243848;
+  --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-sans: "Source Sans 3", "Source Sans Pro", ui-sans-serif, sans-serif;
+
+  /* Surfaces */
+  --color-canvas: #eef2f1;
+  --color-surface: #f7f9f8;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: #e4ebe9;
+
+  /* Brand */
+  --color-teal-950: #062429;
+  --color-teal-900: #0a343c;
+  --color-teal-800: #0d4a56;
+  --color-teal-700: #14606e;
+  --color-teal-600: #1a7788;
+  --color-teal-100: #d5e8eb;
+  --color-teal-50: #eaf4f6;
+
+  --color-amber-700: #9a6a24;
+  --color-amber-600: #c9893a;
+  --color-amber-500: #d4a04a;
+  --color-amber-100: #f5e8d4;
+  --color-amber-50: #fbf4e8;
+
+  --color-risk: #b56a5a;
+  --color-risk-soft: #f3e4e0;
+  --color-success: #2f7a62;
+  --color-success-soft: #dceee7;
+
+  /* Ink */
+  --color-ink: #1a2c31;
+  --color-ink-muted: #5a6f75;
+  --color-ink-faint: #8a9da3;
+  --color-line: #d0dcd8;
+  --color-line-strong: #b5c6c2;
+
+  /* Semantic aliases used in components */
+  --color-primary: var(--color-teal-800);
+  --color-accent: var(--color-amber-600);
+  --color-focus: var(--color-teal-600);
 }
 
 @layer base {
@@ -28,11 +54,13 @@
     margin: 0;
     font-family: var(--font-sans);
     color: var(--color-ink);
-    background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(62, 207, 142, 0.08), transparent 55%),
-      radial-gradient(900px 500px at 100% 0%, rgba(42, 81, 104, 0.35), transparent 50%),
-      linear-gradient(180deg, #0a1218 0%, #0f1c26 45%, #0a1218 100%);
+    background-color: var(--color-canvas);
+    background-image:
+      radial-gradient(900px 480px at 8% -8%, rgba(13, 74, 86, 0.07), transparent 55%),
+      radial-gradient(700px 420px at 100% 0%, rgba(201, 137, 58, 0.08), transparent 50%),
+      linear-gradient(180deg, #eef2f1 0%, #e8eeec 40%, #eef2f1 100%);
     background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
   }
 
   * {
@@ -40,36 +68,27 @@
   }
 
   ::selection {
-    background: rgba(62, 207, 142, 0.28);
+    background: rgba(13, 74, 86, 0.18);
   }
-}
 
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(232, 93, 76, 0.45);
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
-  70% {
-    box-shadow: 0 0 0 12px rgba(232, 93, 76, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(232, 93, 76, 0);
-  }
-}
 
-@keyframes meter-glow {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 0 transparent);
-  }
-  50% {
-    filter: drop-shadow(0 0 8px rgba(232, 168, 56, 0.35));
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
   }
 }
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -77,14 +96,69 @@
   }
 }
 
+@keyframes breath-line {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dashoffset: 8;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes draw-curve {
+  from {
+    stroke-dashoffset: 240;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 .animate-fade-up {
-  animation: fade-up 0.45s ease-out both;
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.animate-pulse-ring {
-  animation: pulse-ring 1.6s ease-out infinite;
+.animate-breath {
+  stroke-dasharray: 6 10;
+  animation: breath-line 4.5s ease-in-out infinite;
 }
 
-.animate-meter {
-  animation: meter-glow 2.4s ease-in-out infinite;
+.animate-draw-curve {
+  stroke-dasharray: 240;
+  animation: draw-curve 1.4s ease-out both;
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 1.8s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 0%,
+    #f4f7f6 45%,
+    var(--color-surface-muted) 90%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
