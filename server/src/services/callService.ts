@@ -1,5 +1,6 @@
 import type {
   CallMode,
+  CallerRemembersView,
   CallerTurnView,
   DebriefView,
   ScoringOutput,
@@ -8,6 +9,7 @@ import type {
 } from "../../../shared/types/index.js";
 import type { CallerModel, Scorer } from "../ai/types.js";
 import type { Repository } from "../db/types.js";
+import { CompositeMemory } from "../memory/compositeMemory.js";
 import type { CallerMemory } from "../memory/types.js";
 import type { SpeechToText, TextToSpeech } from "../voice/types.js";
 import { config } from "../config.js";
@@ -18,6 +20,7 @@ import { callerTurnView, traineeTurnView } from "./views.js";
 
 export class CallService {
   private consecutiveFallbacks = new Map<string, number>();
+  private sessionMemories = new Map<string, CallerRemembersView>();
 
   constructor(
     private repo: Repository,
@@ -28,21 +31,39 @@ export class CallService {
     private tts: TextToSpeech,
   ) {}
 
+  private memorySource(): CallerRemembersView["source"] {
+    if (this.memory instanceof CompositeMemory) return this.memory.lastSource;
+    return config.memoryProvider === "backboard" ? "backboard" : "session_history";
+  }
+
+  getCallerRemembers(sessionId: string): CallerRemembersView | null {
+    return this.sessionMemories.get(sessionId) ?? null;
+  }
+
   async startSession(opts: {
     traineeId: string;
     scenarioId: string;
     mode: CallMode;
-  }): Promise<{ session: SessionRecord; openingTurn: CallerTurnView }> {
+  }): Promise<{
+    session: SessionRecord;
+    openingTurn: CallerTurnView;
+    callerRemembers: CallerRemembersView;
+  }> {
     const { scenario, persona } = await this.repo.getScenarioWithPersona(
       opts.scenarioId,
     );
     const memories = await this.memory.recall(opts.traineeId, persona.id);
+    const callerRemembers: CallerRemembersView = {
+      facts: memories,
+      source: memories.length ? this.memorySource() : "none",
+    };
     const session = await this.repo.createSession({
       traineeId: opts.traineeId,
       scenarioId: opts.scenarioId,
       personaId: persona.id,
       mode: opts.mode,
     });
+    this.sessionMemories.set(session.id, callerRemembers);
 
     const started = Date.now();
     const { turn: raw, safetyFallback } = await safeNextTurn(this.caller, {
@@ -73,6 +94,7 @@ export class CallService {
         clampInfo,
         safetyFallback,
         shouldEndCall: turn.should_end_call,
+        callerRemembers,
       },
       latencyMs: Date.now() - started,
     });
@@ -80,7 +102,7 @@ export class CallService {
     // Warm TTS cache path (audio served on GET)
     void this.tts;
 
-    return { session, openingTurn: callerTurnView(saved) };
+    return { session, openingTurn: callerTurnView(saved), callerRemembers };
   }
 
   async takeTurn(opts: {
@@ -219,14 +241,29 @@ export class CallService {
     const overall = computeOverallScore(output);
     await this.repo.completeSession(sessionId, output, overall);
 
-    // E1 memory write (noop when MEMORY_PROVIDER=none)
+    // Persist caller-POV facts for callbacks (local always; Backboard when enabled).
+    const traineeLines = detail.turns
+      .filter((t) => t.speaker === "trainee")
+      .map((t) => t.text.trim())
+      .filter(Boolean);
+    const promiseLike = traineeLines.find(
+      (t) =>
+        /\b(try|call|reach out|check in|sister|plan|agree|promise|suggest)/i.test(
+          t,
+        ),
+    );
     const facts = [
-      `On this call I talked about: ${scenario.title}.`,
-      `My distress moved across the call; final mood was around ${
+      promiseLike
+        ? `The volunteer said: "${promiseLike.slice(0, 140)}"`
+        : `On this call I talked about: ${scenario.title}.`,
+      traineeLines[0]
+        ? `Early on the volunteer asked or said: "${traineeLines[0].slice(0, 120)}"`
+        : `I spoke with this volunteer about ${persona.name}'s situation.`,
+      `My distress ended around ${
         detail.turns.filter((t) => t.speaker === "caller").at(-1)?.distress ?? "?"
       }.`,
-      output.summary.slice(0, 200),
-    ];
+      output.summary.slice(0, 180),
+    ].filter(Boolean);
     await this.memory.remember(detail.session.traineeId, persona.id, facts);
 
     const updated = await this.repo.getSession(sessionId);

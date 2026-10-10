@@ -2,7 +2,9 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { buildContainer } from "./container.js";
+import { buildCallerRouter } from "./routes/buildCaller.js";
 import { healthRouter } from "./routes/health.js";
+import { readinessRouter } from "./routes/readiness.js";
 import { scenariosRouter } from "./routes/scenarios.js";
 import { sessionsRouter } from "./routes/sessions.js";
 import { traineesRouter } from "./routes/trainees.js";
@@ -14,7 +16,9 @@ app.use(express.json({ limit: "1mb" }));
 
 app.use("/api", healthRouter(container));
 app.use("/api", traineesRouter(container));
+app.use("/api", readinessRouter(container));
 app.use("/api", scenariosRouter(container));
+app.use("/api", buildCallerRouter(container));
 app.use("/api", sessionsRouter(container));
 
 app.use(
@@ -32,7 +36,7 @@ app.use(
 );
 
 app.listen(config.port, () => {
-  console.log(`SteadyLine server on http://localhost:${config.port}`);
+  console.log(`First Line server on http://localhost:${config.port}`);
   console.log(
     `providers ai=${container.providers.ai} voice=${container.providers.voice} memory=${container.providers.memory} repo=${container.providers.repo}`,
   );

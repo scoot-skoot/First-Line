@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import "../../src/config.js";
-import { printResult, timed } from "./_util.js";
+import { formatError, printResult, timed } from "./_util.js";
 
 async function main(): Promise<boolean> {
   const key = process.env.ELEVENLABS_API_KEY;
@@ -44,7 +44,7 @@ async function main(): Promise<boolean> {
     printResult("stt", ok, ok ? "" : `got "${transcript.slice(0, 40)}"`, ms);
     return ok;
   } catch (err) {
-    printResult("stt", false, (err as Error).message.slice(0, 120), 0);
+    printResult("stt", false, formatError(err), 0);
     return false;
   }
 }

@@ -64,6 +64,11 @@ export const textTurnBodySchema = z.object({
   text: z.string().min(1).max(4000),
 });
 
+export const buildCallerBodySchema = z.object({
+  description: z.string().min(8).max(500),
+  traineeId: z.string().uuid().optional(),
+});
+
 export function apiError(
   code: string,
   message: string,

@@ -3,7 +3,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import "../../src/config.js";
-import { printResult, timed } from "./_util.js";
+import { formatError, printResult, timed } from "./_util.js";
 
 async function main(): Promise<boolean> {
   const key = process.env.ELEVENLABS_API_KEY;
@@ -36,7 +36,7 @@ async function main(): Promise<boolean> {
     printResult("tts", ok, ok ? `${bytes} bytes` : `only ${bytes} bytes`, ms);
     return ok;
   } catch (err) {
-    printResult("tts", false, (err as Error).message.slice(0, 120), 0);
+    printResult("tts", false, formatError(err), 0);
     return false;
   }
 }

@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import "../../src/config.js";
 import { CALLER_TURN_JSON_SCHEMA } from "../../src/ai/schemas.js";
 import { callerTurnSchema } from "../../src/validation.js";
-import { printResult, timed } from "./_util.js";
+import { formatError, printResult, timed } from "./_util.js";
 
 async function main(): Promise<boolean> {
   const key = process.env.GEMINI_API_KEY;
@@ -39,7 +39,7 @@ async function main(): Promise<boolean> {
     printResult("gemini", ok, ok ? "" : "bad shape", ms);
     return ok;
   } catch (err) {
-    printResult("gemini", false, (err as Error).message.slice(0, 120), 0);
+    printResult("gemini", false, formatError(err), 0);
     return false;
   }
 }

@@ -76,13 +76,10 @@ export class BackboardMemory implements CallerMemory {
       for (const content of facts.slice(0, 6)) {
         await this.client.addMemory(assistantId, {
           content,
-          metadata: { source: "steadyline" },
+          metadata: { source: "firstline" },
         });
       }
-      const rel = await this.repo.getCallerRelationship(traineeId, personaId);
-      await this.repo.upsertCallerRelationship(traineeId, personaId, {
-        callsCompleted: (rel?.callsCompleted ?? 0) + 1,
-      });
+      // callsCompleted is updated by LocalMemory / CompositeMemory fallback.
     } catch (err) {
       console.warn("[backboard] remember failed:", (err as Error).message);
     }

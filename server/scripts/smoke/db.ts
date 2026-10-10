@@ -1,6 +1,6 @@
 import pg from "pg";
 import "../../src/config.js";
-import { printResult, timed } from "./_util.js";
+import { formatError, printResult, timed } from "./_util.js";
 
 async function main(): Promise<boolean> {
   const url = process.env.DATABASE_URL;
@@ -27,7 +27,7 @@ async function main(): Promise<boolean> {
     printResult("db", true, note, ms);
     return true;
   } catch (err) {
-    printResult("db", false, (err as Error).message.slice(0, 120), 0);
+    printResult("db", false, formatError(err), 0);
     return false;
   } finally {
     await pool.end();

@@ -128,6 +128,10 @@ export interface ScenarioSummary {
   initialDistress: number;
   expectedRiskLevel: RiskLevel;
   callNumber: number;
+  /** ElevenLabs voice id for this persona (optional; added for First Line voices). */
+  personaVoiceId?: string | null;
+  /** True when this is a recurring-caller callback scenario. */
+  isCallback?: boolean;
 }
 
 export interface SessionSummary {
@@ -240,4 +244,67 @@ export interface DistressRecoveryRow {
   peakDistress: number;
   finalDistress: number;
   delta: number;
+}
+
+/** Facts the caller remembers from prior calls with this trainee (UI chip). */
+export interface CallerRemembersView {
+  facts: string[];
+  source: "backboard" | "session_history" | "seed" | "none";
+}
+
+export interface BuildCallerRequest {
+  description: string;
+  traineeId?: string;
+}
+
+export interface BuildCallerPersonaDraft {
+  name: string;
+  age: number | null;
+  backstory: string;
+  speakingStyle: string;
+  baselineEmotion: Emotion | string;
+  hiddenWarningSigns: string[];
+  initialDistress: number;
+  situationBrief: string;
+  hiddenState: string;
+  expectedRiskLevel: RiskLevel;
+  contentNotes: string[];
+  voiceId: string;
+  voiceName: string;
+  difficultyTier: number;
+  title: string;
+}
+
+export interface BuildCallerResponse {
+  scenario: ScenarioSummary;
+  persona: Pick<
+    Persona,
+    "id" | "slug" | "name" | "age" | "voiceId" | "backstory" | "speakingStyle" | "baselineEmotion" | "contentNotes"
+  >;
+  draft: BuildCallerPersonaDraft;
+  safetyFallback: boolean;
+}
+
+export type ReadinessVerdict = "Ready for supervised shifts" | "Not yet";
+
+export interface ReadinessSkillTrend {
+  skill: Skill;
+  latestAvg: number;
+  priorAvg: number | null;
+  trend: "up" | "down" | "flat" | "insufficient_data";
+  samples: number;
+}
+
+export interface ReadinessReport {
+  traineeId: string;
+  traineeDisplayName: string;
+  sessionsCompleted: number;
+  overallAvgScore: number | null;
+  skillTrends: ReadinessSkillTrend[];
+  mostMissedWarningSigns: MissedSignRow[];
+  verdict: ReadinessVerdict;
+  reasons: string[];
+  practicePlan: string[];
+  distressCurveSample: { sessionId: string; seq: number; distress: number; at: string }[];
+  generatedAt: string;
 }

@@ -20,18 +20,39 @@ function isValidating(text: string): boolean {
   return t.includes("sounds like") || t.includes("feel") || t.includes("?");
 }
 
+function memoryOpening(input: CallerTurnInput): string | null {
+  if (input.memories.length === 0) return null;
+  const slug = input.persona.slug.split("-")[0] ?? "";
+  const first = input.memories[0] ?? "";
+  const snippet =
+    first.length > 90 ? `${first.slice(0, 87).trim()}...` : first;
+
+  if (slug === "ray" && input.scenario.callNumber >= 3) {
+    return `It's Ray again. Look — last time you said "${snippet}" and I tried. It blew up with my daughter. So what now?`;
+  }
+  if (slug === "ray" && input.scenario.callNumber >= 2) {
+    return `Hey... it's Ray again. About what you said before — "${snippet}" — I keep thinking about that.`;
+  }
+  return `Hey... it's me again. I remember you saying something like: "${snippet}"`;
+}
+
 export class MockCaller implements CallerModel {
   private lineIndex = 0;
 
   async nextTurn(input: CallerTurnInput): Promise<CallerTurn> {
     if (input.isOpening) {
+      const remembered = memoryOpening(input);
       const slug = input.persona.slug.split("-")[0] ?? "ray";
-      const line = OPENINGS[slug] ?? OPENINGS.ray;
+      const line = remembered ?? OPENINGS[slug] ?? OPENINGS.ray;
+      const emotion =
+        remembered && input.scenario.callNumber >= 3
+          ? "angry"
+          : ((input.persona.baselineEmotion as CallerTurn["emotion"]) || "anxious");
       return {
         caller_line: line,
-        emotion: (input.persona.baselineEmotion as CallerTurn["emotion"]) || "anxious",
+        emotion,
         distress: input.scenario.initialDistress,
-        trust: 30,
+        trust: remembered ? 35 : 30,
         revealed_warning_signs: [],
         should_end_call: false,
       };
@@ -46,8 +67,18 @@ export class MockCaller implements CallerModel {
       Math.min(100, 30 + (isValidating(text) ? 8 : -5) + input.history.length),
     );
 
-    const line = LINES[this.lineIndex % LINES.length]!;
+    let line = LINES[this.lineIndex % LINES.length]!;
     this.lineIndex += 1;
+
+    // On Ray call #3, keep referencing a prior promise when not validating.
+    if (
+      input.memories.length > 0 &&
+      input.scenario.callNumber >= 3 &&
+      this.lineIndex === 2
+    ) {
+      const mem = input.memories[1] ?? input.memories[0]!;
+      line = `You told me ${mem.toLowerCase().replace(/\.$/, "")}. That didn't fix anything.`;
+    }
 
     const revealed: string[] = [];
     if (this.lineIndex === 2 && input.scenario.warningSignCodes.includes("hopelessness")) {
@@ -63,15 +94,20 @@ export class MockCaller implements CallerModel {
       revealed.push("perceived_burden");
     }
 
-    // Keep the practice call going for several exchanges; end after ~5 replies
-    // or when distress is clearly down and we've had enough turns.
     const shouldEnd = this.lineIndex >= 5 || (this.lineIndex >= 4 && distress <= 30);
 
     return {
       caller_line: shouldEnd
         ? "Okay... talking helped a little. I think I can hang up for now."
         : line,
-      emotion: distress >= 70 ? "anxious" : distress <= 40 ? "relieved" : "flat",
+      emotion:
+        input.scenario.callNumber >= 3 && distress >= 60
+          ? "angry"
+          : distress >= 70
+            ? "anxious"
+            : distress <= 40
+              ? "relieved"
+              : "flat",
       distress,
       trust,
       revealed_warning_signs: revealed,
