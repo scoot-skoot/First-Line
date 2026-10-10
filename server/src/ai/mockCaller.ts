@@ -20,20 +20,31 @@ function isValidating(text: string): boolean {
   return t.includes("sounds like") || t.includes("feel") || t.includes("?");
 }
 
+function memorySnippet(memories: string[]): string {
+  const first = memories[0] ?? "";
+  // Strip leading meta phrases so openings don't say "you said 'Last time you…'"
+  const cleaned = first
+    .replace(/^last time you (suggested|said|told me)\s+/i, "")
+    .replace(/^you (suggested|said|told me)\s+/i, "")
+    .replace(/^we talked about\s+/i, "")
+    .replace(/^i told you\s+/i, "")
+    .trim();
+  const text = cleaned || first;
+  return text.length > 90 ? `${text.slice(0, 87).trim()}...` : text;
+}
+
 function memoryOpening(input: CallerTurnInput): string | null {
   if (input.memories.length === 0) return null;
   const slug = input.persona.slug.split("-")[0] ?? "";
-  const first = input.memories[0] ?? "";
-  const snippet =
-    first.length > 90 ? `${first.slice(0, 87).trim()}...` : first;
+  const snippet = memorySnippet(input.memories);
 
   if (slug === "ray" && input.scenario.callNumber >= 3) {
-    return `It's Ray again. Look — last time you said "${snippet}" and I tried. It blew up with my daughter. So what now?`;
+    return `It's Ray again. Look — you told me to try ${snippet} and I did. It blew up with my daughter. So what now?`;
   }
   if (slug === "ray" && input.scenario.callNumber >= 2) {
-    return `Hey... it's Ray again. About what you said before — "${snippet}" — I keep thinking about that.`;
+    return `Hey... it's Ray again. About what you said before — ${snippet} — I keep thinking about that.`;
   }
-  return `Hey... it's me again. I remember you saying something like: "${snippet}"`;
+  return `Hey... it's me again. I remember: ${snippet}`;
 }
 
 export class MockCaller implements CallerModel {
