@@ -59,7 +59,7 @@ export function PushToTalkButton({
 
   if (phase === "denied") {
     return (
-      <p className="text-sm text-amber">
+      <p className="text-sm text-warn-600">
         Microphone permission denied — use the text box instead.
       </p>
     );
@@ -80,10 +80,10 @@ export function PushToTalkButton({
         e.preventDefault();
         stop();
       }}
-      className={`min-w-[10rem] select-none px-5 py-3 font-semibold transition disabled:opacity-50 ${
+      className={`min-w-[10rem] select-none rounded-xl px-5 py-3 font-semibold transition disabled:opacity-50 ${
         phase === "recording"
-          ? "animate-pulse-ring bg-alert text-white"
-          : "bg-console-700 text-ink hover:bg-console-600"
+          ? "animate-soft-pulse bg-rose-500 text-white"
+          : "bg-ink-900 text-white hover:bg-ink-700"
       }`}
     >
       {phase === "recording"
