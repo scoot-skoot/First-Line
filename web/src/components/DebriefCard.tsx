@@ -1,4 +1,13 @@
 import type { DebriefView } from "@shared";
+import {
+  Badge,
+  Button,
+  DistressCurveChart,
+  DistressCurveMark,
+  Panel,
+  ProgressBar,
+} from "../ui";
+import { Link } from "react-router-dom";
 
 const SKILL_LABEL: Record<string, string> = {
   active_listening: "Active listening",
@@ -8,79 +17,103 @@ const SKILL_LABEL: Record<string, string> = {
   warning_sign_recognition: "Warning signs",
 };
 
-function DistressChart({ curve }: { curve: DebriefView["distressCurve"] }) {
-  if (curve.length === 0) return null;
-  const w = 420;
-  const h = 120;
-  const pad = 16;
-  const xs = curve.map((_, i) =>
-    curve.length === 1
-      ? w / 2
-      : pad + (i / (curve.length - 1)) * (w - pad * 2),
-  );
-  const ys = curve.map(
-    (p) => pad + (1 - p.distress / 100) * (h - pad * 2),
-  );
-  const points = xs.map((x, i) => `${x},${ys[i]}`).join(" ");
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-md" role="img" aria-label="Distress over time">
-      <rect x="0" y="0" width={w} height={h} fill="#0f1c26" />
-      <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="#243848" />
-      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#243848" />
-      <polyline fill="none" stroke="#e8a838" strokeWidth="2.5" points={points} />
-      {curve.map((p, i) => (
-        <circle key={p.seq} cx={xs[i]} cy={ys[i]} r="3.5" fill="#3ecf8e" />
-      ))}
-    </svg>
-  );
-}
-
 export function DebriefCard({ debrief }: { debrief: DebriefView }) {
+  const missed = debrief.warningSigns.filter((w) => w.status === "missed");
+  const caught = debrief.warningSigns.filter((w) => w.status === "caught");
+  const partial = debrief.warningSigns.filter((w) => w.status === "partial");
+  const nextStep = debrief.nextSteps[0];
+  const markers = missed.map((w) => ({
+    seq: w.surfaced_turn_seq,
+    label: `Missed: ${w.code.replaceAll("_", " ")}`,
+  }));
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <header className="animate-fade-up">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink-muted">
+        <DistressCurveMark className="h-4 w-14" tone="amber" />
+        <p className="mt-2 text-xs font-medium uppercase tracking-wider text-ink-faint">
           Practice debrief
         </p>
         <div className="mt-2 flex flex-wrap items-end gap-4">
-          <p className="text-6xl font-semibold tabular-nums text-signal">
+          <p className="font-display text-6xl font-semibold tabular-nums text-teal-900">
             {debrief.overallScore}
           </p>
           <div>
-            <p className="text-lg text-ink">Overall skill score</p>
+            <p className="text-lg font-semibold text-ink">Overall skill score</p>
             <p className="max-w-xl text-sm text-ink-muted">
-              AI-generated practice feedback, not a certification or clinical
-              assessment.
+              AI practice feedback — not a certification or clinical assessment.
             </p>
           </div>
         </div>
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink">
           {debrief.summary}
         </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Asked directly about suicide:{" "}
+          <span className="font-semibold text-ink">
+            {debrief.askedDirectlyAboutSuicide ? "Yes" : "Not yet"}
+          </span>
+        </p>
       </header>
 
-      <section>
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-widest text-ink-muted">
-          Skills (0–4)
+      {nextStep && (
+        <Panel className="animate-fade-up border-teal-700/25 bg-teal-50/80">
+          <p className="text-xs font-medium uppercase tracking-wider text-teal-700">
+            Your next step
+          </p>
+          <p className="mt-1 font-display text-xl font-semibold text-teal-900">
+            {nextStep}
+          </p>
+          <div className="mt-4">
+            <Link to="/">
+              <Button size="lg">Practice another call</Button>
+            </Link>
+          </div>
+        </Panel>
+      )}
+
+      <Panel>
+        <h2 className="mb-1 text-lg font-semibold text-ink">
+          Distress over the call
         </h2>
-        <ul className="space-y-4">
+        <p className="mb-3 text-sm text-ink-muted">
+          Soft markers show missed warning signs when they surfaced.
+        </p>
+        <DistressCurveChart
+          points={debrief.distressCurve}
+          markers={markers}
+        />
+        {markers.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {markers.map((m) => (
+              <Badge key={`${m.seq}-${m.label}`} tone="risk">
+                Turn {m.seq}: {m.label.replace("Missed: ", "")}
+              </Badge>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <section>
+        <h2 className="mb-3 text-lg font-semibold text-ink">Rubric scores</h2>
+        <ul className="space-y-3">
           {debrief.skills.map((s) => (
-            <li key={s.skill} className="border border-line bg-console-800/50 p-4">
+            <li
+              key={s.skill}
+              className="rounded-lg border border-line bg-surface-raised p-4 shadow-sm shadow-teal-950/5"
+            >
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="font-medium text-ink">
                   {SKILL_LABEL[s.skill] ?? s.skill}
                 </span>
-                <span className="font-mono text-lg text-signal">{s.score}/4</span>
+                <span className="tabular-nums text-lg font-semibold text-teal-800">
+                  {s.score}/4
+                </span>
               </div>
-              <div className="mb-2 h-2 overflow-hidden rounded-sm bg-console-900">
-                <div
-                  className="h-full bg-signal transition-all"
-                  style={{ width: `${(s.score / 4) * 100}%` }}
-                />
-              </div>
+              <ProgressBar value={s.score} max={4} className="mb-2" />
               <p className="text-sm text-ink-muted">{s.rationale}</p>
               {s.evidence_quote && s.evidence_quote !== "—" && (
-                <p className="mt-2 border-l-2 border-signal/40 pl-3 text-sm italic text-ink">
+                <p className="mt-2 border-l-2 border-amber-600/50 pl-3 text-sm italic text-ink">
                   “{s.evidence_quote}”
                   {s.evidence_turn_seq != null
                     ? ` — turn ${s.evidence_turn_seq}`
@@ -92,76 +125,75 @@ export function DebriefCard({ debrief }: { debrief: DebriefView }) {
         </ul>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h2 className="mb-3 font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Warning signs
+      <section className="grid gap-4 md:grid-cols-2">
+        <Panel>
+          <h2 className="mb-3 text-lg font-semibold text-ink">
+            Caught vs. missed
           </h2>
           {debrief.warningSigns.length === 0 ? (
             <p className="text-sm text-ink-muted">None surfaced this call.</p>
           ) : (
-            <ul className="space-y-2">
-              {debrief.warningSigns.map((w) => (
-                <li
-                  key={`${w.code}-${w.surfaced_turn_seq}`}
-                  className="flex items-start justify-between gap-3 border border-line px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium text-ink">{w.code.replaceAll("_", " ")}</p>
-                    <p className="text-ink-muted">{w.explanation}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 font-mono text-xs uppercase ${
-                      w.status === "caught"
-                        ? "text-signal"
-                        : w.status === "partial"
-                          ? "text-amber"
-                          : "text-alert"
-                    }`}
-                  >
-                    {w.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4">
+              <SignGroup title="Caught" tone="success" items={caught} />
+              <SignGroup title="Partial" tone="amber" items={partial} />
+              <SignGroup title="Missed" tone="risk" items={missed} />
+            </div>
           )}
-          <p className="mt-3 text-sm text-ink-muted">
-            Asked directly about suicide:{" "}
-            <span className="text-ink">
-              {debrief.askedDirectlyAboutSuicide ? "Yes" : "No"}
-            </span>
-          </p>
-        </div>
-        <div>
-          <h2 className="mb-3 font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Distress over time
-          </h2>
-          <DistressChart curve={debrief.distressCurve} />
-        </div>
-      </section>
-
-      <section className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Strengths
-          </h2>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
+        </Panel>
+        <Panel>
+          <h2 className="mb-3 text-lg font-semibold text-ink">Strengths</h2>
+          <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink">
             {debrief.strengths.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ul>
-        </div>
-        <div>
-          <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Try next time
-          </h2>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
-            {debrief.nextSteps.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </div>
+          {debrief.nextSteps.length > 1 && (
+            <>
+              <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">
+                More to try
+              </h3>
+              <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-muted">
+                {debrief.nextSteps.slice(1).map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </Panel>
       </section>
+    </div>
+  );
+}
+
+function SignGroup({
+  title,
+  tone,
+  items,
+}: {
+  title: string;
+  tone: "success" | "amber" | "risk";
+  items: DebriefView["warningSigns"];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-2">
+        <Badge tone={tone}>{title}</Badge>
+        <span className="text-xs text-ink-faint">{items.length}</span>
+      </div>
+      <ul className="space-y-2">
+        {items.map((w) => (
+          <li
+            key={`${w.code}-${w.surfaced_turn_seq}`}
+            className="rounded-md border border-line px-3 py-2 text-sm"
+          >
+            <p className="font-medium capitalize text-ink">
+              {w.code.replaceAll("_", " ")}
+            </p>
+            <p className="text-ink-muted">{w.explanation}</p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

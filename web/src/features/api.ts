@@ -1,7 +1,4 @@
-import type {
-  BuildCallerResponse,
-  ReadinessReport,
-} from "@shared";
+import type { BuildCallerResponse, ReadinessReport } from "@shared";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -34,7 +31,11 @@ export const featuresApi = {
       body: JSON.stringify({ description }),
     }),
   readiness: (traineeId: string) =>
-    request<{ report: ReadinessReport }>(`/api/trainees/${traineeId}/readiness`),
+    request<{ report: ReadinessReport }>(
+      `/api/trainees/${traineeId}/readiness`,
+    ),
   trainees: () =>
-    request<{ trainees: { id: string; displayName: string }[] }>("/api/trainees"),
+    request<{ trainees: { id: string; displayName: string }[] }>(
+      "/api/trainees",
+    ),
 };

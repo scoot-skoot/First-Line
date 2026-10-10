@@ -2,9 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { SessionRecord, TurnView } from "@shared";
 import { api } from "../api/client";
-import { DistressMeter } from "../components/DistressMeter";
+import { NotesPanel } from "../components/NotesPanel";
 import { PushToTalkButton } from "../components/PushToTalkButton";
+import { ResourcesSidebar } from "../components/ResourcesSidebar";
+import { RiskChecklist } from "../components/RiskChecklist";
+import { TrainingOverlay } from "../components/TrainingOverlay";
 import { Transcript } from "../components/Transcript";
+import {
+  Button,
+  CallerAvatar,
+  Chip,
+  Collapse,
+  Panel,
+} from "../ui";
 
 export function Call() {
   const { id = "" } = useParams();
@@ -18,8 +28,13 @@ export function Call() {
   const [callEnded, setCallEnded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
+  const [escalated, setEscalated] = useState(false);
+  const [callerName, setCallerName] = useState("Caller");
+  const [callerVoiceLabel, setCallerVoiceLabel] = useState<string | null>(null);
+  const [rememberedFacts, setRememberedFacts] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pausedRef = useRef(false);
 
   const callerTurns = useMemo(
     () => turns.filter((t) => t.speaker === "caller"),
@@ -32,14 +47,51 @@ export function Call() {
       : null;
 
   useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
+    function playOpening(seq: number) {
+      if (pausedRef.current) return;
+      const url = api.audioUrl(id, seq);
+      if (audioRef.current) audioRef.current.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      void audio.play().catch(() => {
+        // Autoplay often blocked until a user gesture; transcript remains primary.
+      });
+    }
+
     void (async () => {
       const data = await api.getSession(id);
       setSession(data.session);
       setTurns(data.turns);
       setMode(data.session.mode);
       if (data.session.status !== "in_progress") setCallEnded(true);
+      const facts = data.callerRemembers?.facts ?? [];
+      setRememberedFacts(facts);
+      try {
+        const sc = await api.scenarios();
+        const match = sc.scenarios.find((s) => s.id === data.session.scenarioId);
+        if (match) {
+          setCallerName(match.personaName);
+          if (match.personaVoiceId) {
+            const voiceHint =
+              match.personaVoiceId === "EXAVITQu4vr4xnSDxMaL"
+                ? "Sarah"
+                : match.personaVoiceId === "TX3LPaxmHKxFdv7VOQHJ"
+                  ? "Liam"
+                  : match.personaVoiceId === "21m00Tcm4TlvDq8ikWAM"
+                    ? "Rachel"
+                    : match.personaVoiceId.slice(0, 8);
+            setCallerVoiceLabel(voiceHint);
+          }
+        }
+      } catch {
+        /* optional enrichment */
+      }
       const opening = data.turns.find((t) => t.speaker === "caller");
-      if (opening?.audioUrl) playAudio(opening.seq);
+      if (opening?.audioUrl) playOpening(opening.seq);
     })().catch((e) => setToast((e as Error).message));
   }, [id]);
 
@@ -48,7 +100,7 @@ export function Call() {
   }, [turns]);
 
   function playAudio(seq: number) {
-    if (paused) return;
+    if (pausedRef.current) return;
     const url = api.audioUrl(id, seq);
     if (audioRef.current) {
       audioRef.current.pause();
@@ -115,45 +167,68 @@ export function Call() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl flex-col gap-4 px-4 py-6 lg:flex-row">
-      <section className="flex min-h-[50vh] flex-1 flex-col rounded-sm border border-line bg-console-900/50 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-signal">
-              Live call · Training simulator only
-            </p>
-            <h1 className="text-xl font-semibold text-ink">
-              Session {session ? session.id.slice(0, 8) : "…"}
-            </h1>
+    <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-6xl flex-col gap-4 px-4 py-5 lg:flex-row">
+      {/* Left: caller + transcript + input */}
+      <section className="flex min-h-[55vh] flex-1 flex-col rounded-lg border border-line bg-surface-raised p-4 shadow-sm shadow-teal-950/5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CallerAvatar name={callerName} size="md" />
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-faint">
+                Live practice call
+              </p>
+              <h1 className="font-display text-xl font-semibold text-ink">
+                {callerName}
+              </h1>
+              {callerVoiceLabel ? (
+                <p className="text-xs text-ink-muted">Voice · {callerVoiceLabel}</p>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={togglePause}
-              className="border border-line px-3 py-1.5 text-sm text-ink hover:border-amber"
-            >
+            <Button variant="ghost" size="sm" onClick={togglePause}>
               {paused ? "Resume" : "Pause / I need a break"}
-            </button>
+            </Button>
             <Link
               to="/"
-              className="border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-ink"
+              className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
             >
-              Queue
+              Leave call
             </Link>
           </div>
         </div>
 
+        <div className="mb-3 flex min-h-[1.75rem] flex-wrap gap-2" data-slot="caller-remembers">
+          {rememberedFacts.length > 0 ? (
+            rememberedFacts.slice(0, 3).map((fact) => (
+              <Chip key={fact} tone="memory" title={fact}>
+                Caller remembers: {fact.length > 72 ? `${fact.slice(0, 69)}…` : fact}
+              </Chip>
+            ))
+          ) : (
+            <Chip tone="muted" className="opacity-70">
+              Caller remembers: — (appears on callbacks)
+            </Chip>
+          )}
+        </div>
+
         {paused && (
-          <div className="mb-3 border border-amber/40 bg-amber/10 px-3 py-3 text-sm text-ink">
+          <div className="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-3 text-sm text-ink">
             Simulation paused. Take a breath. If you need support yourself, call
             or text <strong>988</strong>.
           </div>
         )}
 
-        <Transcript turns={turns} bottomRef={bottomRef} />
+        <Transcript turns={turns} bottomRef={bottomRef} callerName={callerName} />
+
+        {busy && (
+          <p className="mt-2 animate-soft-pulse text-sm text-ink-muted">
+            {callerName} is responding…
+          </p>
+        )}
 
         {callEnded && (
-          <p className="mt-3 text-sm text-amber">
+          <p className="mt-3 text-sm text-amber-700">
             Caller ended the call — ready for debrief when you are.
           </p>
         )}
@@ -166,17 +241,29 @@ export function Call() {
           }}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex rounded-sm border border-line text-sm">
+            <div
+              className="flex rounded-md border border-line text-sm"
+              role="group"
+              aria-label="Input mode"
+            >
               <button
                 type="button"
-                className={`px-3 py-1.5 ${mode === "text" ? "bg-console-700 text-ink" : "text-ink-muted"}`}
+                className={`rounded-l-md px-3 py-2 font-medium ${
+                  mode === "text"
+                    ? "bg-teal-800 text-teal-50"
+                    : "text-ink-muted hover:bg-surface-muted"
+                }`}
                 onClick={() => setMode("text")}
               >
                 Text
               </button>
               <button
                 type="button"
-                className={`px-3 py-1.5 ${mode === "voice" ? "bg-console-700 text-ink" : "text-ink-muted"}`}
+                className={`rounded-r-md px-3 py-2 font-medium ${
+                  mode === "voice"
+                    ? "bg-teal-800 text-teal-50"
+                    : "text-ink-muted hover:bg-surface-muted"
+                }`}
                 onClick={() => setMode("voice")}
               >
                 Voice
@@ -188,14 +275,15 @@ export function Call() {
                 onClip={sendAudio}
               />
             )}
-            <button
-              type="button"
+            <Button
+              variant="accent"
+              size="lg"
+              className="ml-auto"
               disabled={ending || busy}
               onClick={() => void endAndDebrief()}
-              className="ml-auto bg-signal px-4 py-2 text-sm font-semibold text-console-950 disabled:opacity-50"
             >
-              {ending ? "Scoring…" : "End & debrief"}
-            </button>
+              {ending ? "Preparing debrief…" : "End call"}
+            </Button>
           </div>
           <div className="flex gap-2">
             <input
@@ -203,35 +291,67 @@ export function Call() {
               onChange={(e) => setText(e.target.value)}
               disabled={busy || paused || callEnded}
               placeholder="Type a response (always available)…"
-              className="flex-1 border border-line bg-console-950 px-3 py-2 text-ink outline-none placeholder:text-ink-muted focus:border-signal/50"
+              className="min-h-11 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none placeholder:text-ink-faint focus:border-teal-600 disabled:opacity-50"
             />
-            <button
+            <Button
               type="submit"
+              variant="secondary"
+              size="lg"
               disabled={busy || paused || callEnded || !text.trim()}
-              className="border border-line px-4 py-2 text-sm font-medium text-ink hover:border-signal/50 disabled:opacity-40"
             >
               Send
-            </button>
+            </Button>
           </div>
-          {toast && <p className="text-sm text-amber">{toast}</p>}
+          {toast && (
+            <p className="text-sm text-amber-700" role="status">
+              {toast}
+            </p>
+          )}
         </form>
       </section>
 
-      <aside className="w-full shrink-0 space-y-4 lg:w-80">
-        <DistressMeter
+      {/* Right: context panel */}
+      <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-[22rem]">
+        <TrainingOverlay
           distress={latestCaller?.distress ?? 0}
+          trust={latestCaller?.trust}
           previous={prevDistress}
           history={callerTurns}
         />
-        <div className="border border-line bg-console-900/50 p-4 text-sm text-ink-muted">
-          <p className="font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Operator notes
+
+        <Panel className="space-y-4">
+          <NotesPanel sessionId={id} />
+          <div className="border-t border-line pt-4">
+            <RiskChecklist sessionId={id} />
+          </div>
+        </Panel>
+
+        <Panel padded={false} className="px-4">
+          <Collapse title="Local resources" defaultOpen={false}>
+            <ResourcesSidebar />
+          </Collapse>
+        </Panel>
+
+        <Button
+          variant="danger"
+          size="lg"
+          className="w-full"
+          onClick={() => setEscalated(true)}
+        >
+          Escalate to supervisor
+        </Button>
+        {escalated && (
+          <p className="animate-fade-up rounded-md border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            In a real center, this would page your supervisor. For this
+            simulation, keep practicing — or pause if you need a break.
           </p>
-          <p className="mt-2 leading-relaxed">
-            Validate feelings, ask open questions, and when cues appear ask
-            directly about suicide. This is practice — not a real crisis line.
+        )}
+
+        {session && (
+          <p className="text-center text-xs text-ink-faint">
+            Session {session.id.slice(0, 8)} · {session.mode} mode
           </p>
-        </div>
+        )}
       </aside>
     </div>
   );

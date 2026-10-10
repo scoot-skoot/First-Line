@@ -1,5 +1,6 @@
 import type {
   CallMode,
+  CallerRemembersView,
   CallerTurnView,
   DebriefView,
   HealthResponse,
@@ -50,7 +51,11 @@ export const api = {
     scenarioId: string;
     mode: CallMode;
   }) =>
-    request<{ session: SessionRecord; openingTurn: CallerTurnView }>("/api/sessions", {
+    request<{
+      session: SessionRecord;
+      openingTurn: CallerTurnView;
+      callerRemembers?: CallerRemembersView;
+    }>("/api/sessions", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -59,6 +64,7 @@ export const api = {
       session: SessionRecord;
       turns: TurnView[];
       debrief: DebriefView | null;
+      callerRemembers?: CallerRemembersView;
     }>(`/api/sessions/${id}`),
   postTextTurn: (id: string, text: string) =>
     request<{

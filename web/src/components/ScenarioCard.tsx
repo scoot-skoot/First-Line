@@ -1,4 +1,5 @@
 import type { ScenarioSummary } from "@shared";
+import { Badge, Button, CallerAvatar } from "../ui";
 
 const TIER_LABEL: Record<number, string> = {
   1: "Supportive listening",
@@ -6,65 +7,97 @@ const TIER_LABEL: Record<number, string> = {
   3: "Escalated",
 };
 
+const RISK_TONE: Record<string, "teal" | "amber" | "risk"> = {
+  low: "teal",
+  moderate: "amber",
+  high: "risk",
+};
+
 export function ScenarioCard({
   scenario,
   onSelect,
   busy,
+  featured = false,
 }: {
   scenario: ScenarioSummary;
   onSelect: (mode: "text" | "voice") => void;
   busy?: boolean;
+  featured?: boolean;
 }) {
   return (
-    <article className="animate-fade-up group relative overflow-hidden rounded-sm border border-line bg-console-800/60 p-5 transition hover:border-signal/40 hover:bg-console-700/40">
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-signal/70 opacity-70 transition group-hover:opacity-100" />
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-mono uppercase tracking-wider text-ink-muted">
-        <span className="rounded-sm border border-line px-2 py-0.5 text-signal">
-          Tier {scenario.difficultyTier}
-        </span>
-        <span>{TIER_LABEL[scenario.difficultyTier] ?? "Practice"}</span>
-        <span className="text-line">·</span>
-        <span>Training only</span>
+    <article
+      className={`animate-fade-up flex flex-col gap-4 rounded-lg border bg-surface-raised p-4 shadow-sm shadow-teal-950/5 sm:flex-row sm:items-center ${
+        featured
+          ? "border-teal-700/35 ring-1 ring-teal-700/15"
+          : "border-line"
+      }`}
+    >
+      <CallerAvatar name={scenario.personaName} size="lg" />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <Badge tone="teal">Tier {scenario.difficultyTier}</Badge>
+          <Badge tone={RISK_TONE[scenario.expectedRiskLevel] ?? "neutral"}>
+            {scenario.expectedRiskLevel} risk
+          </Badge>
+          {scenario.callNumber > 1 ? (
+            <Badge tone="amber">Callback #{scenario.callNumber}</Badge>
+          ) : null}
+        </div>
+        <h2 className="font-display text-xl font-semibold tracking-tight text-ink">
+          {scenario.personaName}
+          {scenario.personaAge != null ? (
+            <span className="font-sans text-base font-normal text-ink-muted">
+              , {scenario.personaAge}
+            </span>
+          ) : null}
+        </h2>
+        <p className="mt-0.5 text-sm text-ink-muted">
+          {scenario.title}
+          <span className="mx-1.5 text-line-strong">·</span>
+          {TIER_LABEL[scenario.difficultyTier] ?? "Practice"}
+          {scenario.personaVoiceId ? (
+            <>
+              <span className="mx-1.5 text-line-strong">·</span>
+              Voice{" "}
+              {scenario.personaVoiceId === "EXAVITQu4vr4xnSDxMaL"
+                ? "Sarah"
+                : scenario.personaVoiceId === "TX3LPaxmHKxFdv7VOQHJ"
+                  ? "Liam"
+                  : scenario.personaVoiceId === "21m00Tcm4TlvDq8ikWAM"
+                    ? "Rachel"
+                    : scenario.personaVoiceId.slice(0, 8)}
+            </>
+          ) : null}
+        </p>
+        {scenario.contentNotes.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {scenario.contentNotes.slice(0, 3).map((n) => (
+              <li
+                key={n}
+                className="rounded border border-line bg-surface-muted px-2 py-0.5 text-xs text-ink-muted"
+              >
+                {n}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      <h2 className="font-sans text-xl font-semibold tracking-tight text-ink">
-        {scenario.personaName}
-        {scenario.personaAge != null ? (
-          <span className="text-ink-muted">, {scenario.personaAge}</span>
-        ) : null}
-      </h2>
-      <p className="mt-1 text-base text-ink-muted">{scenario.title}</p>
-      <p className="mt-3 text-sm text-ink-muted">
-        Initial distress{" "}
-        <span className="font-mono text-amber">{scenario.initialDistress}</span>
-        <span className="mx-2 text-line">·</span>
-        Risk {scenario.expectedRiskLevel}
-      </p>
-      <ul className="mt-3 flex flex-wrap gap-1.5">
-        {scenario.contentNotes.map((n) => (
-          <li
-            key={n}
-            className="border border-line/80 bg-console-900/50 px-2 py-0.5 text-xs text-ink-muted"
-          >
-            {n}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button
-          type="button"
+      <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+        <Button
+          size="lg"
           disabled={busy}
           onClick={() => onSelect("voice")}
-          className="bg-signal px-4 py-2 text-sm font-semibold text-console-950 transition hover:bg-signal/90 disabled:opacity-50"
+          className="w-full sm:w-auto"
         >
-          Take call (voice)
-        </button>
+          Take call
+        </Button>
         <button
           type="button"
           disabled={busy}
           onClick={() => onSelect("text")}
-          className="border border-line px-4 py-2 text-sm font-medium text-ink transition hover:border-ink-muted disabled:opacity-50"
+          className="text-sm font-medium text-ink-muted underline-offset-2 hover:text-teal-800 hover:underline disabled:opacity-45"
         >
-          Text practice
+          Text practice instead
         </button>
       </div>
     </article>

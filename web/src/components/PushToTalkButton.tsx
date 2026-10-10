@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { cn } from "../ui/cn";
 
 type Phase = "idle" | "recording" | "uploading" | "denied";
 
@@ -59,7 +60,7 @@ export function PushToTalkButton({
 
   if (phase === "denied") {
     return (
-      <p className="text-sm text-amber">
+      <p className="text-sm text-amber-700">
         Microphone permission denied — use the text box instead.
       </p>
     );
@@ -69,7 +70,7 @@ export function PushToTalkButton({
     <button
       type="button"
       disabled={disabled || phase === "uploading"}
-      onMouseDown={start}
+      onMouseDown={() => void start()}
       onMouseUp={stop}
       onMouseLeave={stop}
       onTouchStart={(e) => {
@@ -80,11 +81,14 @@ export function PushToTalkButton({
         e.preventDefault();
         stop();
       }}
-      className={`min-w-[10rem] select-none px-5 py-3 font-semibold transition disabled:opacity-50 ${
+      className={cn(
+        "min-h-12 min-w-[11rem] select-none rounded-md px-5 py-3.5 text-base font-semibold transition disabled:opacity-50",
         phase === "recording"
-          ? "animate-pulse-ring bg-alert text-white"
-          : "bg-console-700 text-ink hover:bg-console-600"
-      }`}
+          ? "animate-soft-pulse bg-risk text-white"
+          : phase === "uploading"
+            ? "bg-surface-muted text-ink-muted"
+            : "bg-teal-800 text-teal-50 hover:bg-teal-700",
+      )}
     >
       {phase === "recording"
         ? "Release to send"

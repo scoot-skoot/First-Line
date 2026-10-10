@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AppHeader } from "./components/AppHeader";
 import { CrisisBanner } from "./components/CrisisBanner";
 import { BuildCallerPage } from "./features/build-a-caller/BuildCallerPage";
 import { ReadinessPage } from "./features/readiness/ReadinessPage";
@@ -11,39 +12,14 @@ export default function App() {
     <BrowserRouter>
       <div className="flex min-h-screen flex-col">
         <CrisisBanner />
-        <header className="border-b border-line/80 px-4 py-3">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-            <a href="/" className="font-semibold tracking-tight text-ink">
-              First Line
-              <span className="ml-2 font-mono text-xs font-normal uppercase tracking-wider text-ink-muted">
-                Training simulator only
-              </span>
-            </a>
-            <nav className="flex items-center gap-4 font-mono text-xs">
-              <a href="/build-a-caller" className="text-ink-muted hover:text-ink">
-                Build a Caller
-              </a>
-              <a href="/readiness" className="text-ink-muted hover:text-ink">
-                Readiness
-              </a>
-              <a
-                href="https://988lifeline.org"
-                target="_blank"
-                rel="noreferrer"
-                className="text-signal hover:underline"
-              >
-                988 resources
-              </a>
-            </nav>
-          </div>
-        </header>
+        <AppHeader />
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/call/:id" element={<Call />} />
             <Route path="/debrief/:id" element={<Debrief />} />
-            <Route path="/build-a-caller" element={<BuildCallerPage />} />
             <Route path="/readiness" element={<ReadinessPage />} />
+            <Route path="/build-a-caller" element={<BuildCallerPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
