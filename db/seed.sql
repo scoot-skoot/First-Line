@@ -30,9 +30,9 @@ INSERT INTO personas (id, slug, name, age, voice_id, backstory, speaking_style, 
     'ray-callback',
     'Ray',
     46,
-    'EXAVITQu4vr4xnSDxMaL',
+    'TX3LPaxmHKxFdv7VOQHJ',
     'Warehouse supervisor laid off 3 weeks ago. Divorced, one adult daughter. Has been staying in and sleeping poorly.',
-    'short sentences, sighs, deflects with dry humor',
+    'short sentences, sighs, deflects with dry humor; can get irritated on callbacks when he feels brushed off',
     'flat',
     true,
     ARRAY['job loss', 'hopelessness', 'suicidal thoughts (non-graphic)']
@@ -86,6 +86,15 @@ INSERT INTO scenarios (id, persona_id, title, call_number, difficulty_tier, situ
     'Ray is calling back about a week later. He may reference what you talked about last time.',
     'Tried one coping step from last call. Still struggling with sleep and isolation. Trust depends on how call 1 went.',
     'moderate', 55, true
+  ),
+  (
+    'c0000000-0000-4000-8000-000000000005',
+    'b0000000-0000-4000-8000-000000000002',
+    'Ray, call #3 — after the argument',
+    3, 2,
+    'Ray calls a third time after a setback. He should remember what the volunteer suggested on earlier calls.',
+    'Had an argument with his daughter. Still no plan. Remembers the volunteer asked him to call his sister and check in again. Irritated but reachable if the volunteer stays steady.',
+    'moderate', 60, true
   );
 
 -- Maya: loneliness / withdrawal-ish cues (low risk)
@@ -127,3 +136,51 @@ FROM warning_signs WHERE code = 'hopelessness';
 INSERT INTO scenario_warning_signs (scenario_id, warning_sign_id, cue_hint)
 SELECT 'c0000000-0000-4000-8000-000000000004', id, 'Still isolating most days'
 FROM warning_signs WHERE code = 'withdrawal';
+
+-- Ray call 3
+INSERT INTO scenario_warning_signs (scenario_id, warning_sign_id, cue_hint)
+SELECT 'c0000000-0000-4000-8000-000000000005', id, 'Feels worse after argument; still doubts things will change'
+FROM warning_signs WHERE code = 'hopelessness';
+
+INSERT INTO scenario_warning_signs (scenario_id, warning_sign_id, cue_hint)
+SELECT 'c0000000-0000-4000-8000-000000000005', id, 'Still mostly alone after fighting with daughter'
+FROM warning_signs WHERE code = 'perceived_burden';
+
+INSERT INTO scenario_warning_signs (scenario_id, warning_sign_id, cue_hint)
+SELECT 'c0000000-0000-4000-8000-000000000005', id, 'Has not been answering friends'
+FROM warning_signs WHERE code = 'withdrawal';
+
+-- Demo memory path: prior completed Ray call so call #3 works without Backboard
+INSERT INTO sessions (
+  id, trainee_id, scenario_id, persona_id, mode, status, started_at, ended_at, overall_score
+) VALUES (
+  'd0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-000000000001',
+  'c0000000-0000-4000-8000-000000000002',
+  'b0000000-0000-4000-8000-000000000002',
+  'text', 'completed',
+  now() - interval '7 days',
+  now() - interval '7 days' + interval '20 minutes',
+  72
+);
+
+INSERT INTO turns (session_id, seq, speaker, text, distress, trust, emotion, revealed_warning_signs, state) VALUES
+  ('d0000000-0000-4000-8000-000000000001', 1, 'caller',
+   'Hey... yeah. I haven''t really been sleeping.', 65, 30, 'flat', '{}', '{}'),
+  ('d0000000-0000-4000-8000-000000000001', 2, 'trainee',
+   'That sounds really heavy. Have you thought about calling your sister this week?', NULL, NULL, NULL, '{}', '{}'),
+  ('d0000000-0000-4000-8000-000000000001', 3, 'caller',
+   'Maybe. She might pick up.', 55, 40, 'flat', '{hopelessness}', '{}');
+
+INSERT INTO debriefs (session_id, summary, strengths, next_steps, asked_directly_about_suicide, model, raw_json) VALUES (
+  'd0000000-0000-4000-8000-000000000001',
+  'Volunteer suggested Ray call his sister and check in again. Ray agreed to try.',
+  '["Warm tone","Asked about supports"]'::jsonb,
+  '["Ask directly about suicide","Explore isolation"]'::jsonb,
+  false,
+  'seed',
+  '{"summary":"Volunteer suggested Ray call his sister and check in again. Ray agreed to try.","skills":[],"warning_signs":[],"asked_directly_about_suicide":false,"strengths":[],"next_steps":[]}'::jsonb
+);
+
+INSERT INTO caller_relationships (trainee_id, persona_id, backboard_assistant_id, calls_completed) VALUES
+  ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002', NULL, 1);

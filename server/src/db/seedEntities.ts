@@ -29,7 +29,8 @@ export const PERSONAS: Persona[] = [
     voiceId: SEED.voiceIds.ray,
     backstory:
       "Warehouse supervisor laid off 3 weeks ago. Divorced, one adult daughter. Has been staying in and sleeping poorly.",
-    speakingStyle: "short sentences, sighs, deflects with dry humor",
+    speakingStyle:
+      "short sentences, sighs, deflects with dry humor; can get irritated on callbacks when he feels brushed off",
     baselineEmotion: "flat",
     isRecurring: true,
     contentNotes: ["job loss", "hopelessness", "suicidal thoughts (non-graphic)"],
@@ -127,4 +128,31 @@ export const SCENARIOS: Scenario[] = [
       withdrawal: "Still isolating most days",
     },
   },
+  {
+    id: SEED.scenarios.ray3,
+    personaId: SEED.personas.ray,
+    title: "Ray, call #3 — after the argument",
+    callNumber: 3,
+    difficultyTier: 2,
+    situationBrief:
+      "Ray calls a third time after a setback. He should remember what the volunteer suggested on earlier calls.",
+    hiddenState:
+      "Had an argument with his daughter. Still no plan. Remembers the volunteer asked him to call his sister and check in again. Irritated but reachable if the volunteer stays steady.",
+    expectedRiskLevel: "moderate",
+    initialDistress: 60,
+    isActive: true,
+    warningSignCodes: ["hopelessness", "perceived_burden", "withdrawal"],
+    warningSignHints: {
+      hopelessness: "Feels worse after argument; still doubts things will change",
+      perceived_burden: "Still mostly alone after fighting with daughter",
+      withdrawal: "Has not been answering friends",
+    },
+  },
+];
+
+/** Seeded demo facts so Ray call #3 works when MEMORY_PROVIDER=none. */
+export const DEMO_RAY_MEMORIES = [
+  "Last time the volunteer suggested I call my sister this week.",
+  "We talked about my sleep and how I've been staying in.",
+  "I said I might try checking in again.",
 ];

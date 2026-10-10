@@ -11,13 +11,24 @@ export const SEED = {
     ray: "c0000000-0000-4000-8000-000000000002",
     dana: "c0000000-0000-4000-8000-000000000003",
     ray2: "c0000000-0000-4000-8000-000000000004",
+    ray3: "c0000000-0000-4000-8000-000000000005",
   },
+  demoPriorSessionId: "d0000000-0000-4000-8000-000000000001",
   voiceIds: {
-    maya: "EXAVITQu4vr4xnSDxMaL",
-    ray: "EXAVITQu4vr4xnSDxMaL",
+    maya: "EXAVITQu4vr4xnSDxMaL", // Sarah
+    ray: "TX3LPaxmHKxFdv7VOQHJ", // Liam
     dana: "EXAVITQu4vr4xnSDxMaL",
   },
 } as const;
+
+/** Curated ElevenLabs premade voices for Build-a-Caller. */
+export const CURATED_VOICES = [
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", notes: "warm, young adult" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", notes: "mid adult male, grounded" },
+  { id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", notes: "soft, reflective" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", notes: "clear, calm" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", notes: "steady adult male" },
+] as const;
 
 export const WARNING_SIGNS = [
   { code: "hopelessness", label: "Hopelessness", fcp: "desire" },
