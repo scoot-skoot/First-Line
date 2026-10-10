@@ -1,23 +1,24 @@
 import { BackboardClient } from "backboard-sdk";
 import { config } from "../config.js";
 import type { Repository } from "../db/types.js";
+import { SessionHistoryMemory } from "./sessionHistoryMemory.js";
 import type { CallerMemory } from "./types.js";
 
 /**
  * E1: one Backboard assistant per (trainee, persona).
- * Docs: https://backboard-docs.docsalot.dev/sdk/assistants.md
- * Memory: https://backboard-docs.docsalot.dev/sdk/memory.md
- * Response fields are camelCase in JS (assistantId); request fields like
- * system_prompt stay snake_case. VERIFY IN DOCS if SDK version differs.
+ * Falls back to SessionHistoryMemory when Backboard is empty/slow/errors
+ * so Ray call #3 still has "Caller remembers" chips.
  */
 export class BackboardMemory implements CallerMemory {
   private client: BackboardClient;
   private repo: Repository;
+  private fallback: SessionHistoryMemory;
 
   constructor(repo: Repository, apiKey = config.backboardApiKey) {
     if (!apiKey) throw new Error("BACKBOARD_API_KEY required for BackboardMemory");
     this.client = new BackboardClient({ apiKey });
     this.repo = repo;
+    this.fallback = new SessionHistoryMemory(repo);
   }
 
   private async ensureAssistant(
@@ -47,21 +48,31 @@ export class BackboardMemory implements CallerMemory {
   }
 
   async recall(traineeId: string, personaId: string): Promise<string[]> {
+    const fallback = await this.fallback.recall(traineeId, personaId);
     try {
       const assistantId = await this.ensureAssistant(traineeId, personaId);
-      if (!assistantId) return [];
-      const found = await this.client.searchMemories(
-        assistantId,
-        "previous calls with the volunteer",
-        10,
-      );
-      const memories = (found as { memories?: { content?: string }[] }).memories ?? [];
-      return memories
-        .map((m) => m.content)
-        .filter((c): c is string => typeof c === "string" && c.length > 0);
+      if (!assistantId) return fallback;
+
+      let memories: string[] = [];
+      const deadline = Date.now() + 2500;
+      while (Date.now() <= deadline) {
+        const found = await this.client.searchMemories(
+          assistantId,
+          "previous calls with the volunteer promises suggestions sister",
+          10,
+        );
+        memories = ((found as { memories?: { content?: string }[] }).memories ?? [])
+          .map((m) => m.content)
+          .filter((c): c is string => typeof c === "string" && c.length > 0);
+        if (memories.length > 0) break;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+
+      if (memories.length === 0) return fallback;
+      return [...new Set([...memories, ...fallback])].slice(0, 10);
     } catch (err) {
-      console.warn("[backboard] recall failed:", (err as Error).message);
-      return [];
+      console.warn("[backboard] recall failed, using fallback:", (err as Error).message);
+      return fallback;
     }
   }
 
@@ -70,6 +81,7 @@ export class BackboardMemory implements CallerMemory {
     personaId: string,
     facts: string[],
   ): Promise<void> {
+    await this.fallback.remember(traineeId, personaId, facts);
     try {
       const assistantId = await this.ensureAssistant(traineeId, personaId);
       if (!assistantId) return;
