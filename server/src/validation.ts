@@ -62,11 +62,19 @@ export const createSessionBodySchema = z.object({
 
 export const textTurnBodySchema = z.object({
   text: z.string().min(1).max(4000),
+  bargeIn: z.boolean().optional(),
+  bargeInFromSeq: z.number().int().positive().optional(),
 });
 
 export const buildCallerBodySchema = z.object({
   description: z.string().min(8).max(500),
   traineeId: z.string().uuid().optional(),
+});
+
+export const interruptionBodySchema = z.object({
+  kind: z.enum(["ptt_timeout", "silence", "barge_in"]),
+  partialText: z.string().max(4000).optional(),
+  bargeInFromSeq: z.number().int().positive().optional(),
 });
 
 export function apiError(

@@ -144,6 +144,20 @@ export interface SessionSummary {
   endedAt: string | null;
 }
 
+/** Why the caller interrupted the normal turn-taking rhythm. */
+export type InterruptionKind = "ptt_timeout" | "silence" | "barge_in";
+
+export interface InterruptionThresholds {
+  /** Base PTT hold before caller cuts in (ms), mid-distress. */
+  pttHoldMsBase: number;
+  pttHoldMsMin: number;
+  pttHoldMsMax: number;
+  /** Base silence before caller prompts (ms), mid-distress. */
+  silenceMsBase: number;
+  silenceMsMin: number;
+  silenceMsMax: number;
+}
+
 export interface TurnView {
   seq: number;
   speaker: Speaker;
@@ -156,6 +170,24 @@ export interface TurnView {
   audioUrl?: string | null;
   safetyFallback?: boolean;
   latencyMs?: number | null;
+  /** True when this turn was an interruption (caller cut in / silence / barge-in). */
+  interrupted?: boolean;
+  interruptionKind?: InterruptionKind | null;
+}
+
+export interface InterruptionRequest {
+  kind: InterruptionKind;
+  /** Partial trainee transcript when PTT hold timed out. */
+  partialText?: string;
+  /** Caller turn seq that was cut off (barge-in). */
+  bargeInFromSeq?: number;
+}
+
+export interface InterruptionResponse {
+  traineeTurn: TurnView | null;
+  callerTurn: CallerTurnView;
+  callEnded: boolean;
+  thresholds: InterruptionThresholds;
 }
 
 export type CallerTurnView = TurnView;
