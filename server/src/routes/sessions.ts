@@ -1,12 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import type { AppContainer } from "../container.js";
-import {
-  apiError,
-  createSessionBodySchema,
-  interruptionBodySchema,
-  textTurnBodySchema,
-} from "../validation.js";
+import { apiError, createSessionBodySchema, textTurnBodySchema } from "../validation.js";
 import { callerTurnView, traineeTurnView } from "../services/views.js";
 
 const upload = multer({

@@ -26,44 +26,9 @@ export class GeminiCaller implements CallerModel {
       input.memories,
       input.currentDistress,
     );
-    let userInput: string;
-    if (input.interruption) {
-      const kind = input.interruption.kind;
-      const hints: Record<string, string> = {
-        ptt_timeout:
-          "The volunteer has been talking too long / holding the line. Cut in briefly.",
-        silence:
-          "The volunteer has been silent too long. Prompt them that you are still here.",
-        barge_in:
-          "The volunteer cut you off mid-sentence (barge-in). React briefly that you weren't finished.",
-      };
-      const partial = input.interruption.partialTraineeText
-        ? `\nThey had started saying: "${input.interruption.partialTraineeText.slice(0, 200)}"`
-        : "";
-      const cut = input.interruption.bargeInCutOff
-        ? "\nYour previous line was interrupted mid-audio."
-        : "";
-      userInput =
-        transcriptAsText(input.history) +
-        `\n\nINTERRUPTION (${kind}): ${hints[kind] ?? "Interrupt briefly."}${partial}${cut}\n` +
-        "Produce ONE short interruption line as JSON (1 sentence preferred). Keep distress consistent. Do not end the call.";
-    } else if (input.isOpening) {
-      userInput =
-        "The call just connected. Produce the caller's opening line as JSON.";
-    } else {
-      const cutOff =
-        input.priorCallerCutOff ||
-        input.history.some(
-          (t) => t.state && (t.state as { bargeInCutOff?: boolean }).bargeInCutOff,
-        );
-      const bargeNote = cutOff
-        ? "\nNote: the volunteer cut off your previous spoken line mid-audio. You may briefly acknowledge that, then respond to what they said."
-        : "";
-      userInput =
-        transcriptAsText(input.history) +
-        bargeNote +
-        "\n\nProduce the next CALLER turn as JSON.";
-    }
+    const userInput = input.isOpening
+      ? "The call just connected. Produce the caller's opening line as JSON."
+      : transcriptAsText(input.history) + "\n\nProduce the next CALLER turn as JSON.";
 
     // VERIFY IN DOCS: generation_config keys (max output tokens, thinking level)
     // https://ai.google.dev/api/interactions-api

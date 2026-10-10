@@ -51,32 +51,6 @@ export class MockCaller implements CallerModel {
   private lineIndex = 0;
 
   async nextTurn(input: CallerTurnInput): Promise<CallerTurn> {
-    if (input.interruption) {
-      const kind = input.interruption.kind;
-      const lines: Record<string, string> = {
-        ptt_timeout: "Are you even listening to me?",
-        silence: "Hello? ...are you still there?",
-        barge_in: "Hey— I wasn't finished. Can I finish?",
-      };
-      const emotion: CallerTurn["emotion"] =
-        kind === "silence"
-          ? "anxious"
-          : input.currentDistress >= 70
-            ? "angry"
-            : "irritated";
-      return {
-        caller_line: lines[kind] ?? lines.ptt_timeout!,
-        emotion,
-        distress: Math.min(
-          100,
-          input.currentDistress + (kind === "silence" ? 2 : 5),
-        ),
-        trust: Math.max(10, 30 - (kind === "barge_in" ? 5 : 2)),
-        revealed_warning_signs: [],
-        should_end_call: false,
-      };
-    }
-
     if (input.isOpening) {
       const remembered = memoryOpening(input);
       const slug = input.persona.slug.split("-")[0] ?? "ray";

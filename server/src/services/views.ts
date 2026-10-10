@@ -6,18 +6,6 @@ import type {
 } from "../../../shared/types/index.js";
 import { config } from "../config.js";
 
-function interruptedFields(t: TurnRecord): Pick<TurnView, "interrupted" | "interruptionKind"> {
-  const interrupted = Boolean(t.state?.interrupted);
-  const kind = t.state?.interruptionKind;
-  return {
-    interrupted: interrupted || undefined,
-    interruptionKind:
-      interrupted && typeof kind === "string"
-        ? (kind as TurnView["interruptionKind"])
-        : null,
-  };
-}
-
 export function traineeTurnView(t: TurnRecord): TurnView {
   return {
     seq: t.seq,
@@ -25,7 +13,6 @@ export function traineeTurnView(t: TurnRecord): TurnView {
     text: t.text,
     createdAt: t.createdAt,
     latencyMs: t.latencyMs,
-    ...interruptedFields(t),
   };
 }
 
@@ -47,7 +34,6 @@ export function callerTurnView(t: TurnRecord): CallerTurnView {
     audioUrl,
     safetyFallback: Boolean(t.state?.safetyFallback),
     latencyMs: t.latencyMs,
-    ...interruptedFields(t),
   };
 }
 

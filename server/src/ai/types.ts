@@ -1,6 +1,5 @@
 import type {
   CallerTurn,
-  InterruptionKind,
   Persona,
   Scenario,
   ScoringOutput,
@@ -14,15 +13,6 @@ export interface CallerTurnInput {
   currentDistress: number;
   memories: string[];
   isOpening: boolean;
-  /** When set, produce a short interruption line (not a full reply). */
-  interruption?: {
-    kind: InterruptionKind;
-    /** Trainee cut off the caller's previous audio. */
-    bargeInCutOff?: boolean;
-    partialTraineeText?: string;
-  };
-  /** Full reply, but caller knows their previous audio was barged into. */
-  priorCallerCutOff?: boolean;
 }
 
 export interface CallerModel {
