@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ScenarioSummary } from "@shared";
 import { api } from "../api/client";
 import { ScenarioCard } from "../components/ScenarioCard";
@@ -50,38 +50,57 @@ export function Home() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-10">
       <header className="mb-10 animate-fade-up">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-signal">
-          Dispatch board · Training simulator only
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">
+          Counselor practice · Training simulator only
         </p>
-        <h1 className="mt-2 font-sans text-4xl font-bold tracking-tight text-ink md:text-5xl">
+        <h1 className="font-display mt-2 text-4xl font-bold tracking-tight text-ink-900 md:text-5xl">
           SteadyLine
         </h1>
-        <p className="mt-3 max-w-2xl text-base text-ink-muted md:text-lg">
-          Practice crisis-line skills with a simulated caller. Pick an incoming
-          call, respond with care, and review a skill-focused debrief.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-700 md:text-lg">
+          Practice 988-style skills with a simulated caller in a calm workstation.
+          Choose a practice call, take notes, and review a skill-focused debrief.
         </p>
+        <div className="mt-5 flex flex-wrap gap-3 text-sm">
+          <Link
+            to="/build"
+            className="rounded-xl border border-line bg-white px-3.5 py-2 font-medium text-ink-700 hover:border-teal-500/40"
+          >
+            Build a caller
+          </Link>
+          {traineeId && (
+            <Link
+              to={`/readiness/${traineeId}`}
+              className="rounded-xl border border-line bg-white px-3.5 py-2 font-medium text-ink-700 hover:border-teal-500/40"
+            >
+              Readiness report
+            </Link>
+          )}
+        </div>
         {providers && (
-          <p className="mt-3 font-mono text-xs text-ink-muted">{providers}</p>
+          <p className="mt-4 font-mono text-xs text-ink-400">{providers}</p>
         )}
       </header>
 
       <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
-            Incoming call queue
-          </h2>
-          <span className="font-mono text-xs text-signal">
-            {scenarios.length} waiting
-          </span>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">
+              Next practice call
+            </h2>
+            <p className="text-sm text-ink-500">
+              Scenario and difficulty — pick one to begin.
+            </p>
+          </div>
+          <span className="text-sm text-teal-700">{scenarios.length} available</span>
         </div>
         {error && (
-          <p className="mb-4 border border-alert/40 bg-alert/10 px-3 py-2 text-sm text-alert">
+          <p className="mb-4 rounded-xl border border-rose-100 bg-rose-100/60 px-3 py-2 text-sm text-rose-600">
             {error}
           </p>
         )}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {scenarios.map((s) => (
             <ScenarioCard
               key={s.id}

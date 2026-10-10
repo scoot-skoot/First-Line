@@ -31,18 +31,18 @@ export function Debrief() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-3">
-        <p className="font-mono text-xs uppercase tracking-widest text-signal">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">
           Debrief · Training simulator only
         </p>
-        <Link to="/" className="text-sm text-ink-muted hover:text-signal">
-          ← Back to queue
+        <Link to="/" className="text-sm text-ink-500 hover:text-teal-700">
+          ← Back to practice list
         </Link>
       </div>
       {loading && (
-        <p className="animate-fade-up text-ink-muted">Preparing your debrief…</p>
+        <p className="animate-fade-up text-ink-500">Preparing your debrief…</p>
       )}
       {error && (
-        <div className="border border-alert/40 bg-alert/10 px-4 py-3 text-sm text-alert">
+        <div className="rounded-xl border border-rose-100 bg-rose-100/60 px-4 py-3 text-sm text-rose-600">
           {error}
           <button
             type="button"

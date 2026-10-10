@@ -2,7 +2,9 @@ import type {
   CallMode,
   CallerTurnView,
   DebriefView,
+  GeneratedPersona,
   HealthResponse,
+  ReadinessReport,
   ScenarioSummary,
   SessionRecord,
   TurnView,
@@ -50,7 +52,12 @@ export const api = {
     scenarioId: string;
     mode: CallMode;
   }) =>
-    request<{ session: SessionRecord; openingTurn: CallerTurnView }>("/api/sessions", {
+    request<{
+      session: SessionRecord;
+      openingTurn: CallerTurnView;
+      memories: string[];
+      personaName: string;
+    }>("/api/sessions", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -59,6 +66,8 @@ export const api = {
       session: SessionRecord;
       turns: TurnView[];
       debrief: DebriefView | null;
+      memories: string[];
+      personaName: string;
     }>(`/api/sessions/${id}`),
   postTextTurn: (id: string, text: string) =>
     request<{
@@ -85,4 +94,14 @@ export const api = {
     }),
   audioUrl: (sessionId: string, seq: number) =>
     `${BASE}/api/sessions/${sessionId}/turns/${seq}/audio`,
+  buildCaller: (description: string, opts?: { save?: boolean }) =>
+    request<{
+      persona: GeneratedPersona;
+      scenarioId: string | null;
+    }>("/api/scenarios/generate", {
+      method: "POST",
+      body: JSON.stringify({ description, save: Boolean(opts?.save) }),
+    }),
+  readiness: (traineeId: string) =>
+    request<ReadinessReport>(`/api/trainees/${traineeId}/readiness`),
 };
