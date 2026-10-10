@@ -112,7 +112,7 @@ export class CallService {
     }
 
     if (opts.kind === "barge_in" && opts.bargeInFromSeq != null) {
-      // Mark the cut-off caller turn so later Gemini turns know.
+      // Mark the cut-off caller turn so later Gemini turns know (not an interruption row).
       const cut = detail.turns.find(
         (t) => t.seq === opts.bargeInFromSeq && t.speaker === "caller",
       );
@@ -120,8 +120,6 @@ export class CallService {
         cut.state = {
           ...(cut.state ?? {}),
           bargeInCutOff: true,
-          interrupted: true,
-          interruptionKind: "barge_in",
         };
       }
     }
