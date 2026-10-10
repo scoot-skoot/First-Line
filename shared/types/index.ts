@@ -211,6 +211,9 @@ export interface HealthResponse {
     voice: string;
     memory: string;
     repo: string;
+    /** ptt (default push-to-talk) or duplex (ElevenLabs Agents). */
+    callMode?: string;
+    duplexLlmMode?: string;
   };
 }
 
