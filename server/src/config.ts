@@ -36,7 +36,35 @@ export const config = {
   elevenLabsSttModel: process.env.ELEVENLABS_STT_MODEL ?? "scribe_v2",
   backboardApiKey: optional("BACKBOARD_API_KEY"),
   databaseUrl: optional("DATABASE_URL"),
+  /** Caller interruptions: PTT hold / silence thresholds (ms). Higher distress → shorter. */
+  interruptPttHoldMsBase: Number(process.env.INTERRUPT_PTT_HOLD_MS ?? 14000),
+  interruptPttHoldMsMin: Number(process.env.INTERRUPT_PTT_HOLD_MS_MIN ?? 8000),
+  interruptPttHoldMsMax: Number(process.env.INTERRUPT_PTT_HOLD_MS_MAX ?? 15000),
+  interruptSilenceMsBase: Number(process.env.INTERRUPT_SILENCE_MS ?? 9000),
+  interruptSilenceMsMin: Number(process.env.INTERRUPT_SILENCE_MS_MIN ?? 5000),
+  interruptSilenceMsMax: Number(process.env.INTERRUPT_SILENCE_MS_MAX ?? 10000),
 };
+
+export function interruptionThresholdsFromConfig() {
+  return {
+    pttHoldMsBase: config.interruptPttHoldMsBase,
+    pttHoldMsMin: config.interruptPttHoldMsMin,
+    pttHoldMsMax: config.interruptPttHoldMsMax,
+    silenceMsBase: config.interruptSilenceMsBase,
+    silenceMsMin: config.interruptSilenceMsMin,
+    silenceMsMax: config.interruptSilenceMsMax,
+  };
+}
+
+/** Scale hold/silence windows: high distress/agitation → shorter wait. */
+export function scaledInterruptMs(
+  distress: number,
+  min: number,
+  max: number,
+): number {
+  const d = Math.max(0, Math.min(100, distress)) / 100;
+  return Math.round(max - d * (max - min));
+}
 
 /** Require an env var; throw a named missing-env error (never log the value). */
 export function requireEnv(name: string): string {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { SessionRecord, TurnView } from "@shared";
 import { api } from "../api/client";
@@ -8,6 +8,10 @@ import { ResourcesSidebar } from "../components/ResourcesSidebar";
 import { RiskChecklist } from "../components/RiskChecklist";
 import { TrainingOverlay } from "../components/TrainingOverlay";
 import { Transcript } from "../components/Transcript";
+import {
+  mergeInterruptionTurns,
+  useCallerInterruptions,
+} from "../features/interruptions/useCallerInterruptions";
 import {
   Button,
   CallerAvatar,
@@ -46,22 +50,44 @@ export function Call() {
       ? (callerTurns.at(-2)?.distress ?? null)
       : null;
 
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-
-  useEffect(() => {
-    function playOpening(seq: number) {
+  const playAudio = useCallback(
+    (seq: number) => {
       if (pausedRef.current) return;
       const url = api.audioUrl(id, seq);
-      if (audioRef.current) audioRef.current.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       const audio = new Audio(url);
       audioRef.current = audio;
       void audio.play().catch(() => {
         // Autoplay often blocked until a user gesture; transcript remains primary.
       });
-    }
+    },
+    [id],
+  );
 
+  const interruptions = useCallerInterruptions({
+    sessionId: id,
+    enabled: Boolean(id) && mode === "voice",
+    paused,
+    callEnded,
+    busy,
+    currentDistress: latestCaller?.distress ?? 50,
+    latestCallerSeq: latestCaller?.seq ?? null,
+    audioRef,
+    onInterrupted: (result) => {
+      setTurns((t) => mergeInterruptionTurns(t, result));
+      if (result.callerTurn.audioUrl) playAudio(result.callerTurn.seq);
+      if (result.callEnded) setCallEnded(true);
+    },
+    onError: (message) => setToast(message),
+  });
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
     void (async () => {
       const data = await api.getSession(id);
       setSession(data.session);
@@ -91,37 +117,26 @@ export function Call() {
         /* optional enrichment */
       }
       const opening = data.turns.find((t) => t.speaker === "caller");
-      if (opening?.audioUrl) playOpening(opening.seq);
+      if (opening?.audioUrl) playAudio(opening.seq);
     })().catch((e) => setToast((e as Error).message));
-  }, [id]);
+  }, [id, playAudio]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns]);
 
-  function playAudio(seq: number) {
-    if (pausedRef.current) return;
-    const url = api.audioUrl(id, seq);
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    void audio.play().catch(() => {
-      // Autoplay often blocked until a user gesture; transcript remains primary.
-    });
-  }
-
   async function sendText(value: string) {
     if (!value.trim() || busy || paused || callEnded) return;
     setBusy(true);
     setToast(null);
+    interruptions.noteActivity();
     try {
       const res = await api.postTextTurn(id, value.trim());
       setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
       setText("");
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
+      interruptions.noteActivity();
     } catch (e) {
       setToast((e as Error).message);
     } finally {
@@ -133,11 +148,17 @@ export function Call() {
     if (busy || paused || callEnded) return;
     setBusy(true);
     setToast(null);
+    interruptions.noteActivity();
     try {
-      const res = await api.postAudioTurn(id, blob);
+      const res = await api.postAudioTurn(id, blob, {
+        bargeIn: interruptions.pendingBargeIn,
+        bargeInFromSeq: interruptions.pendingBargeInFromSeq,
+      });
+      interruptions.clearBargeIn();
       setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
+      interruptions.noteActivity();
     } catch (e) {
       setToast(`${(e as Error).message} — try typing instead.`);
       setMode("text");
@@ -273,6 +294,10 @@ export function Call() {
               <PushToTalkButton
                 disabled={busy || paused || callEnded}
                 onClip={sendAudio}
+                maxHoldMs={interruptions.pttHoldMs}
+                onMaxHold={interruptions.onPttMaxHold}
+                onRecordingStart={interruptions.onPttStart}
+                onRecordingEnd={interruptions.onPttEnd}
               />
             )}
             <Button

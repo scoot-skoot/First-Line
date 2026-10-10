@@ -3,6 +3,9 @@ import type {
   CallerRemembersView,
   CallerTurnView,
   DebriefView,
+  InterruptionKind,
+  InterruptionResponse,
+  InterruptionThresholds,
   ScoringOutput,
   SessionRecord,
   TurnView,
@@ -12,8 +15,12 @@ import type { Repository } from "../db/types.js";
 import { CompositeMemory } from "../memory/compositeMemory.js";
 import type { CallerMemory } from "../memory/types.js";
 import type { SpeechToText, TextToSpeech } from "../voice/types.js";
-import { config } from "../config.js";
+import {
+  config,
+  interruptionThresholdsFromConfig,
+} from "../config.js";
 import { normalizeCallerTurn } from "./distress.js";
+import { pickFallback } from "./interruptionFallbacks.js";
 import { safeNextTurn } from "./safety.js";
 import { computeOverallScore } from "./scoring.js";
 import { callerTurnView, traineeTurnView } from "./views.js";
@@ -38,6 +45,155 @@ export class CallService {
 
   getCallerRemembers(sessionId: string): CallerRemembersView | null {
     return this.sessionMemories.get(sessionId) ?? null;
+  }
+
+  getInterruptionThresholds(): InterruptionThresholds {
+    return interruptionThresholdsFromConfig();
+  }
+
+  async interrupt(opts: {
+    sessionId: string;
+    kind: InterruptionKind;
+    partialText?: string;
+    audio?: Buffer;
+    mimeType?: string;
+    bargeInFromSeq?: number;
+  }): Promise<InterruptionResponse> {
+    const detail = await this.repo.getSession(opts.sessionId);
+    if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
+    if (detail.session.status !== "in_progress") {
+      throw Object.assign(new Error("Session is not in progress"), { status: 409 });
+    }
+
+    const thresholds = this.getInterruptionThresholds();
+    const { scenario, persona } = await this.repo.getScenarioWithPersona(
+      detail.session.scenarioId,
+    );
+    const lastCaller = [...detail.turns]
+      .reverse()
+      .find((t) => t.speaker === "caller");
+    const currentDistress = lastCaller?.distress ?? scenario.initialDistress;
+
+    const started = Date.now();
+    let traineeTurn: TurnView | null = null;
+    let history = [...detail.turns];
+
+    if (opts.kind === "ptt_timeout") {
+      let partial = opts.partialText?.trim() ?? "";
+      if (!partial && opts.audio) {
+        try {
+          partial = await this.stt.transcribe(
+            opts.audio,
+            opts.mimeType ?? "audio/webm",
+          );
+        } catch (err) {
+          console.warn(
+            "[interrupt] STT on partial failed:",
+            (err as Error).message,
+          );
+          partial = "(trainee was speaking — transcript unavailable)";
+        }
+      }
+      if (!partial) partial = "(trainee held the line too long)";
+
+      const savedTrainee = await this.repo.appendTurn({
+        sessionId: opts.sessionId,
+        speaker: "trainee",
+        text: partial,
+        state: {
+          interrupted: true,
+          interruptionKind: "ptt_timeout",
+          partial: true,
+        },
+        latencyMs: null,
+      });
+      traineeTurn = traineeTurnView(savedTrainee);
+      history = [...history, savedTrainee];
+    }
+
+    if (opts.kind === "barge_in" && opts.bargeInFromSeq != null) {
+      // Mark the cut-off caller turn so later Gemini turns know (not an interruption row).
+      const cut = detail.turns.find(
+        (t) => t.seq === opts.bargeInFromSeq && t.speaker === "caller",
+      );
+      if (cut) {
+        cut.state = {
+          ...(cut.state ?? {}),
+          bargeInCutOff: true,
+        };
+      }
+    }
+
+    const memories = await this.memory.recall(
+      detail.session.traineeId,
+      persona.id,
+    );
+
+    const cached = pickFallback(opts.kind, currentDistress);
+    let line = cached.line;
+    let emotion = cached.emotion;
+    let distress = Math.min(100, currentDistress + (opts.kind === "silence" ? 2 : 4));
+    let trust = 28;
+    let safetyFallback = false;
+    let shouldEnd = false;
+
+    const { turn: raw, safetyFallback: fb } = await safeNextTurn(this.caller, {
+      persona,
+      scenario,
+      history,
+      currentDistress,
+      memories,
+      isOpening: false,
+      interruption: {
+        kind: opts.kind,
+        bargeInCutOff: opts.kind === "barge_in",
+        partialTraineeText: opts.partialText,
+      },
+    });
+
+    if (!fb && raw.caller_line?.trim() && raw.caller_line.length <= 220) {
+      const { turn } = normalizeCallerTurn(raw, {
+        previousDistress: currentDistress,
+        isOpening: false,
+        initialDistress: scenario.initialDistress,
+        allowedWarningSigns: scenario.warningSignCodes,
+      });
+      line = turn.caller_line;
+      emotion = turn.emotion;
+      distress = turn.distress;
+      trust = turn.trust;
+      shouldEnd = turn.should_end_call;
+    } else {
+      // Model failed or returned a generic safety line — use cached interruption.
+      safetyFallback = true;
+      line = cached.line;
+      emotion = cached.emotion;
+    }
+
+    const callerSaved = await this.repo.appendTurn({
+      sessionId: opts.sessionId,
+      speaker: "caller",
+      text: line,
+      distress,
+      trust,
+      emotion,
+      revealedWarningSigns: [],
+      state: {
+        interrupted: true,
+        interruptionKind: opts.kind,
+        safetyFallback,
+        shouldEndCall: shouldEnd,
+        bargeInFromSeq: opts.bargeInFromSeq ?? null,
+      },
+      latencyMs: Date.now() - started,
+    });
+
+    return {
+      traineeTurn,
+      callerTurn: callerTurnView(callerSaved),
+      callEnded: shouldEnd,
+      thresholds,
+    };
   }
 
   async startSession(opts: {
@@ -110,6 +266,9 @@ export class CallService {
     text?: string;
     audio?: Buffer;
     mimeType?: string;
+    /** Trainee barged in on the previous caller audio. */
+    bargeIn?: boolean;
+    bargeInFromSeq?: number;
   }): Promise<{
     traineeTurn: TurnView;
     callerTurn: CallerTurnView;
@@ -145,6 +304,9 @@ export class CallService {
       sessionId: opts.sessionId,
       speaker: "trainee",
       text: traineeText,
+      state: opts.bargeIn
+        ? { bargeIn: true, bargeInFromSeq: opts.bargeInFromSeq ?? null }
+        : null,
       latencyMs: null,
     });
 
@@ -155,6 +317,12 @@ export class CallService {
     const lastCaller = [...detail.turns]
       .reverse()
       .find((t) => t.speaker === "caller");
+    if (opts.bargeIn && lastCaller) {
+      lastCaller.state = {
+        ...(lastCaller.state ?? {}),
+        bargeInCutOff: true,
+      };
+    }
     const currentDistress = lastCaller?.distress ?? scenario.initialDistress;
     const memories = await this.memory.recall(
       detail.session.traineeId,
@@ -168,6 +336,7 @@ export class CallService {
       currentDistress,
       memories,
       isOpening: false,
+      priorCallerCutOff: Boolean(opts.bargeIn),
     });
 
     let consecutive = this.consecutiveFallbacks.get(opts.sessionId) ?? 0;
