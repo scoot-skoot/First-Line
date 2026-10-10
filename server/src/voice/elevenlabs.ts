@@ -36,8 +36,10 @@ export class ElevenLabsSpeechToText implements SpeechToText {
     const el = client();
     // VERIFY IN DOCS: Scribe accepting audio/webm (opus) uploads directly
     // https://elevenlabs.io/docs/eleven-api/guides/cookbooks/speech-to-text
+    // Copy into a plain ArrayBuffer so BlobPart typing accepts it (Node Buffer vs DOM).
+    const bytes = Uint8Array.from(audio);
     const result = await el.speechToText.convert({
-      file: new Blob([audio], { type: mimeType || "audio/webm" }),
+      file: new Blob([bytes], { type: mimeType || "audio/webm" }),
       modelId: config.elevenLabsSttModel,
     });
     // VERIFY IN DOCS: response type union (multichannel) — prefer .text when present
