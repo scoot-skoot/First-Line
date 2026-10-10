@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import type { ScenarioSummary } from "@shared";
 import { api } from "../api/client";
 import { ScenarioCard } from "../components/ScenarioCard";
+import { duplexApi } from "../features/duplex/api";
+import { stashDuplexBoot } from "../features/duplex/DuplexCall";
 
 export function Home() {
   const navigate = useNavigate();
@@ -11,20 +13,24 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [providers, setProviders] = useState<string>("");
+  const [duplexEnabled, setDuplexEnabled] = useState(false);
 
   useEffect(() => {
     void (async () => {
       try {
-        const [sc, tr, health] = await Promise.all([
+        const [sc, tr, health, duplex] = await Promise.all([
           api.scenarios(),
           api.trainees(),
           api.health(),
+          duplexApi.status().catch(() => null),
         ]);
         setScenarios(sc.scenarios);
         const demo = tr.trainees[0];
         if (demo) setTraineeId(demo.id);
+        const callMode = health.providers.callMode ?? duplex?.callMode ?? "ptt";
+        setDuplexEnabled(callMode === "duplex" || Boolean(duplex?.duplexEnabled));
         setProviders(
-          `ai=${health.providers.ai} · voice=${health.providers.voice} · memory=${health.providers.memory} · repo=${health.providers.repo}`,
+          `ai=${health.providers.ai} · voice=${health.providers.voice} · memory=${health.providers.memory} · repo=${health.providers.repo} · call=${callMode}`,
         );
       } catch (e) {
         setError((e as Error).message);
@@ -37,6 +43,12 @@ export function Home() {
     setBusy(true);
     setError(null);
     try {
+      if (mode === "voice" && duplexEnabled) {
+        const boot = await duplexApi.startSession({ traineeId, scenarioId });
+        stashDuplexBoot(boot.session.id, boot);
+        navigate(`/call/${boot.session.id}`);
+        return;
+      }
       const { session } = await api.startSession({
         traineeId,
         scenarioId,
@@ -64,6 +76,11 @@ export function Home() {
         </p>
         {providers && (
           <p className="mt-3 font-mono text-xs text-ink-muted">{providers}</p>
+        )}
+        {duplexEnabled && (
+          <p className="mt-2 font-mono text-xs text-signal">
+            CALL_MODE=duplex — voice starts full-duplex ElevenLabs Agents (barge-in).
+          </p>
         )}
       </header>
 

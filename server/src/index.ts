@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config.js";
 import { buildContainer } from "./container.js";
+import { duplexRouter } from "./duplex/routes.js";
 import { buildCallerRouter } from "./routes/buildCaller.js";
 import { healthRouter } from "./routes/health.js";
 import { readinessRouter } from "./routes/readiness.js";
@@ -12,7 +13,7 @@ import { traineesRouter } from "./routes/trainees.js";
 const container = buildContainer();
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 
 app.use("/api", healthRouter(container));
 app.use("/api", traineesRouter(container));
@@ -20,6 +21,7 @@ app.use("/api", readinessRouter(container));
 app.use("/api", scenariosRouter(container));
 app.use("/api", buildCallerRouter(container));
 app.use("/api", sessionsRouter(container));
+app.use("/api", duplexRouter(container));
 
 app.use(
   (
@@ -38,6 +40,6 @@ app.use(
 app.listen(config.port, () => {
   console.log(`First Line server on http://localhost:${config.port}`);
   console.log(
-    `providers ai=${container.providers.ai} voice=${container.providers.voice} memory=${container.providers.memory} repo=${container.providers.repo}`,
+    `providers ai=${container.providers.ai} voice=${container.providers.voice} memory=${container.providers.memory} repo=${container.providers.repo} callMode=${container.providers.callMode} duplexLlm=${container.providers.duplexLlmMode}`,
   );
 });

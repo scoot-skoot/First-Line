@@ -12,6 +12,7 @@ import { CompositeMemory } from "./memory/compositeMemory.js";
 import { LocalMemory } from "./memory/localMemory.js";
 import type { CallerMemory } from "./memory/types.js";
 import { CallService } from "./services/callService.js";
+import { DuplexService } from "./duplex/duplexService.js";
 import {
   ElevenLabsSpeechToText,
   ElevenLabsTextToSpeech,
@@ -28,11 +29,14 @@ export interface AppContainer {
   stt: SpeechToText;
   tts: TextToSpeech;
   calls: CallService;
+  duplex: DuplexService;
   providers: {
     ai: string;
     voice: string;
     memory: string;
     repo: string;
+    callMode: string;
+    duplexLlmMode: string;
   };
 }
 
@@ -61,6 +65,7 @@ export function buildContainer(): AppContainer {
       : new MockTextToSpeech();
 
   const calls = new CallService(repo, caller, scorer, memory, stt, tts);
+  const duplex = new DuplexService(repo, caller, memory, calls);
 
   return {
     repo,
@@ -71,11 +76,14 @@ export function buildContainer(): AppContainer {
     stt,
     tts,
     calls,
+    duplex,
     providers: {
       ai: config.aiProvider,
       voice: config.voiceProvider,
       memory: config.memoryProvider,
       repo: config.repoProvider,
+      callMode: config.callMode,
+      duplexLlmMode: config.duplexLlmMode,
     },
   };
 }

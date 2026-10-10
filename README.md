@@ -59,6 +59,19 @@ All keys are **server-side only** (`server/.env`). The web app only needs `VITE_
 - `db/` — schema and seed SQL
 - `server/scripts/smoke/` — API smoke tests
 
+## Full-duplex voice (prototype)
+
+Push-to-talk remains the default. To try ElevenLabs Agents barge-in:
+
+```bash
+# server/.env
+CALL_MODE=duplex
+ELEVENLABS_AGENT_ID=agent_...
+DUPLEX_LLM_MODE=overrides   # recommended — no public URL
+```
+
+Setup steps (agent dashboard, client tool, optional ngrok for custom Gemini LLM): **[docs/DUPLEX.md](docs/DUPLEX.md)**.
+
 ## Safety
 
 - Persistent 988 banner on every page
