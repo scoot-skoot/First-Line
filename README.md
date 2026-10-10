@@ -13,3 +13,19 @@ MLH Best Use of Gemini API · MLH Best Use of ElevenLabs · Best Use of Backboar
 ## Workflow
 - Branch per feature (`feat/<name>`), open a PR into `main`, get a quick review from one teammate.
 - Never commit API keys. Put them in `.env` (gitignored) and keep `.env.example` updated.
+
+## Setup
+```bash
+git clone https://github.com/scoot-skoot/codered-orion.git && cd codered-orion
+npm install && npm run install:all
+cp server/.env.example server/.env   # fill in your API keys
+cp web/.env.example web/.env
+npm run dev                          # server :3001, web :5173
+```
+Check http://localhost:3001/api/health to see which keys are loaded.
+
+## Layout
+- `web/` React + Vite + TS UI (talks only to our REST API)
+- `server/src/routes` HTTP layer · `services` call orchestration · `ai` Gemini · `voice` ElevenLabs · `memory` Backboard · `db` Postgres
+- `shared/types` JSON contracts used by both sides
+- `db/` schema and seed SQL · `scripts/` API smoke tests

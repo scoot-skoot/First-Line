@@ -1,0 +1,1 @@
+-- SteadyLine schema (owner: David). See docs/DESIGN.md for the full data model.

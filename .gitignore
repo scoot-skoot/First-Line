@@ -1,10 +1,24 @@
+# deps
 node_modules/
+# build
+dist/
+build/
+*.tsbuildinfo
+# env / secrets (keep .env.example committed)
 .env
 .env.*
 !.env.example
-dist/
-build/
+# logs & OS
+*.log
+npm-debug.log*
 .DS_Store
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+# python (if used for analysis)
 __pycache__/
 .venv/
-*.log
+# audio test output
+*.mp3
+*.wav
