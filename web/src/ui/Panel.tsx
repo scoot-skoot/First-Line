@@ -1,12 +1,13 @@
+import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 
 export function Panel({
   children,
   className,
   padded = true,
-}: {
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
   children: React.ReactNode;
-  className?: string;
   padded?: boolean;
 }) {
   return (
@@ -16,6 +17,7 @@ export function Panel({
         padded && "p-4",
         className,
       )}
+      {...props}
     >
       {children}
     </div>
