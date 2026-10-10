@@ -22,3 +22,7 @@ __pycache__/
 # audio test output
 *.mp3
 *.wav
+
+# Keep the mock TTS asset (*.mp3 is otherwise ignored)
+!server/assets/
+!server/assets/*.mp3
