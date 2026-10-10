@@ -1,0 +1,37 @@
+{
+  "scenarios": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000001",
+      "title": "Can't sleep before finals",
+      "personaName": "Maya",
+      "personaAge": 19,
+      "difficultyTier": 1,
+      "contentNotes": ["exam stress", "loneliness", "homesickness"],
+      "initialDistress": 55,
+      "expectedRiskLevel": "low",
+      "callNumber": 1
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000002",
+      "title": "Can't sleep, can't stop thinking",
+      "personaName": "Ray",
+      "personaAge": 46,
+      "difficultyTier": 2,
+      "contentNotes": ["job loss", "hopelessness", "suicidal thoughts (non-graphic)"],
+      "initialDistress": 65,
+      "expectedRiskLevel": "moderate",
+      "callNumber": 1
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000003",
+      "title": "I've tried this before",
+      "personaName": "Dana",
+      "personaAge": 34,
+      "difficultyTier": 3,
+      "contentNotes": ["frustration with services", "caregiver stress", "irritability"],
+      "initialDistress": 70,
+      "expectedRiskLevel": "moderate",
+      "callNumber": 1
+    }
+  ]
+}
