@@ -241,3 +241,44 @@ export interface DistressRecoveryRow {
   finalDistress: number;
   delta: number;
 }
+
+export interface GeneratedPersona {
+  name: string;
+  age: number;
+  backstory: string;
+  speakingStyle: string;
+  baselineEmotion: string;
+  situationBrief: string;
+  hiddenState: string;
+  expectedRiskLevel: RiskLevel;
+  initialDistress: number;
+  difficultyTier: number;
+  contentNotes: string[];
+  warningSignCodes: string[];
+  warningSignHints: Record<string, string>;
+  suggestedVoiceId: string;
+  suggestedVoiceName: string;
+}
+
+export interface ReadinessSkillTrend {
+  skill: Skill;
+  avgScore: number;
+  samples: number;
+  delta: number | null;
+}
+
+export interface PracticePlanItem {
+  scenarioId: string;
+  title: string;
+  reason: string;
+}
+
+export interface ReadinessReport {
+  traineeId: string;
+  verdict: "ready" | "not_yet";
+  reasons: string[];
+  skillTrends: ReadinessSkillTrend[];
+  missedWarningSigns: MissedSignRow[];
+  practicePlan: PracticePlanItem[];
+  sessionsCompleted: number;
+}
