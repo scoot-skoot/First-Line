@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { CrisisBanner } from "./components/CrisisBanner";
 import { BuildCallerPage } from "./features/build-a-caller/BuildCallerPage";
 import { ReadinessPage } from "./features/readiness/ReadinessPage";
-import { Call } from "./pages/Call";
+import { CallRoute } from "./features/duplex/CallRoute";
 import { Debrief } from "./pages/Debrief";
 import { Home } from "./pages/Home";
 
@@ -40,7 +40,7 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/call/:id" element={<Call />} />
+            <Route path="/call/:id" element={<CallRoute />} />
             <Route path="/debrief/:id" element={<Debrief />} />
             <Route path="/build-a-caller" element={<BuildCallerPage />} />
             <Route path="/readiness" element={<ReadinessPage />} />

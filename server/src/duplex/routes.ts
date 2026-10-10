@@ -114,6 +114,16 @@ export function duplexRouter(container: AppContainer): Router {
     }
   });
 
+  r.post("/duplex/sessions/:id/credentials", async (req, res) => {
+    try {
+      const creds = await duplex.refreshCredentials(req.params.id);
+      res.json(creds);
+    } catch (err) {
+      const status = statusOf(err);
+      res.status(status).json(apiError(codeOf(err), (err as Error).message));
+    }
+  });
+
   // Custom LLM: ElevenLabs expects .../v1/chat/completions under the server URL.
   // Point the agent Custom LLM server URL at https://<tunnel>/api/duplex
   r.post("/duplex/v1/chat/completions", handleCustomChatCompletions(duplex));

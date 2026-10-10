@@ -474,4 +474,40 @@ export class DuplexService {
   endSession(sessionId: string) {
     return this.calls.endSession(sessionId);
   }
+
+  /** Refresh signed URL / conversation token for an existing duplex session. */
+  async refreshCredentials(sessionId: string): Promise<{
+    connectionType: DuplexConnectionType;
+    signedUrl?: string;
+    conversationToken?: string;
+    conversationId?: string;
+    agentId: string;
+  }> {
+    const agentId = config.elevenLabsAgentId;
+    if (!agentId) {
+      throw Object.assign(new Error("ELEVENLABS_AGENT_ID required"), {
+        status: 503,
+        code: "MISSING_AGENT_ID",
+      });
+    }
+    const detail = await this.repo.getSession(sessionId);
+    if (!detail) {
+      throw Object.assign(new Error("Session not found"), { status: 404 });
+    }
+    const connectionType = config.duplexConnection;
+    if (connectionType === "websocket") {
+      return {
+        connectionType,
+        agentId,
+        signedUrl: await fetchSignedUrl(agentId),
+      };
+    }
+    const tok = await fetchConversationToken(agentId);
+    return {
+      connectionType,
+      agentId,
+      conversationToken: tok.token,
+      conversationId: tok.conversationId,
+    };
+  }
 }
