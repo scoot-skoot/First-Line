@@ -56,7 +56,7 @@ export function Call() {
     const audio = new Audio(url);
     audioRef.current = audio;
     void audio.play().catch(() => {
-      setToast("Caller audio unavailable — transcript still works.");
+      // Autoplay often blocked until a user gesture; transcript remains primary.
     });
   }
 
