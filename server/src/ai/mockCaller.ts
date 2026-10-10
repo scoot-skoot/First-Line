@@ -63,7 +63,9 @@ export class MockCaller implements CallerModel {
       revealed.push("perceived_burden");
     }
 
-    const shouldEnd = this.lineIndex >= 6 || distress <= 35;
+    // Keep the practice call going for several exchanges; end after ~5 replies
+    // or when distress is clearly down and we've had enough turns.
+    const shouldEnd = this.lineIndex >= 5 || (this.lineIndex >= 4 && distress <= 30);
 
     return {
       caller_line: shouldEnd
