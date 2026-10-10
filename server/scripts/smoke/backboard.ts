@@ -1,6 +1,6 @@
 import { BackboardClient } from "backboard-sdk";
 import "../../src/config.js";
-import { printResult, timed } from "./_util.js";
+import { formatError, printResult, timed } from "./_util.js";
 
 async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
@@ -57,7 +57,7 @@ async function main(): Promise<boolean> {
     printResult("backboard", true, `(search: ${value})`, ms);
     return true;
   } catch (err) {
-    printResult("backboard", false, (err as Error).message.slice(0, 120), 0);
+    printResult("backboard", false, formatError(err), 0);
     return false;
   }
 }
