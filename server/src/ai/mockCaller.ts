@@ -39,7 +39,7 @@ function memoryOpening(input: CallerTurnInput): string | null {
   const snippet = memorySnippet(input.memories);
 
   if (slug === "ray" && input.scenario.callNumber >= 3) {
-    return `It's Ray again. Look — you told me to try ${snippet} and I did. It blew up with my daughter. So what now?`;
+    return `It's Ray again. Look — about "${snippet}" — I tried. It blew up with my daughter. So what now?`;
   }
   if (slug === "ray" && input.scenario.callNumber >= 2) {
     return `Hey... it's Ray again. About what you said before — ${snippet} — I keep thinking about that.`;
