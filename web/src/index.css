@@ -1,46 +1,57 @@
 @import "tailwindcss";
 
+/*
+  First Line warm-red palette (central tokens).
+  Existing teal-* / amber-* utility classes map onto these values so
+  components pick up the rebrand without ad-hoc hex.
+*/
 @theme {
   --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
   --font-sans: "Source Sans 3", "Source Sans Pro", ui-sans-serif, sans-serif;
 
   /* Surfaces */
-  --color-canvas: #eef2f1;
-  --color-surface: #f7f9f8;
+  --color-canvas: #faf9f7;
+  --color-surface: #f5e6df;
   --color-surface-raised: #ffffff;
-  --color-surface-muted: #e4ebe9;
+  --color-surface-muted: #efe0d8;
 
-  /* Brand */
-  --color-teal-950: #062429;
-  --color-teal-900: #0a343c;
-  --color-teal-800: #0d4a56;
-  --color-teal-700: #14606e;
-  --color-teal-600: #1a7788;
-  --color-teal-100: #d5e8eb;
-  --color-teal-50: #eaf4f6;
+  /* Brand — teal-* utilities → deep / primary red */
+  --color-teal-950: #5a0f14;
+  --color-teal-900: #8b1820;
+  --color-teal-800: #8b1820;
+  --color-teal-700: #e8403f;
+  --color-teal-600: #e8403f;
+  --color-teal-100: #fcc199;
+  --color-teal-50: #f5e6df;
 
-  --color-amber-700: #9a6a24;
-  --color-amber-600: #c9893a;
-  --color-amber-500: #d4a04a;
-  --color-amber-100: #f5e8d4;
-  --color-amber-50: #fbf4e8;
+  /* Accent — amber-* utilities → orange + peach */
+  --color-amber-700: #b35f00;
+  --color-amber-600: #d97700;
+  --color-amber-500: #d97700;
+  --color-amber-100: #fcc199;
+  --color-amber-50: #f5e6df;
 
-  --color-risk: #b56a5a;
-  --color-risk-soft: #f3e4e0;
-  --color-success: #2f7a62;
+  /* Explicit peach for low-distress meter fills */
+  --color-peach: #fcc199;
+
+  /* Distress / status */
+  --color-risk: #e8403f;
+  --color-risk-soft: #fcc199;
+  --color-success: #2f6b4f;
   --color-success-soft: #dceee7;
 
   /* Ink */
-  --color-ink: #1a2c31;
-  --color-ink-muted: #5a6f75;
-  --color-ink-faint: #8a9da3;
-  --color-line: #d0dcd8;
-  --color-line-strong: #b5c6c2;
+  --color-ink: #33312e;
+  --color-ink-muted: #5c5854;
+  --color-ink-faint: #8a847e;
+  --color-line: #e5d4cb;
+  --color-line-strong: #d4b8ab;
 
-  /* Semantic aliases used in components */
-  --color-primary: var(--color-teal-800);
-  --color-accent: var(--color-amber-600);
-  --color-focus: var(--color-teal-600);
+  /* Semantic aliases */
+  --color-primary: #8b1820;
+  --color-accent: #d97700;
+  --color-brand: #e8403f;
+  --color-focus: #e8403f;
 }
 
 @layer base {
@@ -56,9 +67,9 @@
     color: var(--color-ink);
     background-color: var(--color-canvas);
     background-image:
-      radial-gradient(900px 480px at 8% -8%, rgba(13, 74, 86, 0.07), transparent 55%),
-      radial-gradient(700px 420px at 100% 0%, rgba(201, 137, 58, 0.08), transparent 50%),
-      linear-gradient(180deg, #eef2f1 0%, #e8eeec 40%, #eef2f1 100%);
+      radial-gradient(900px 480px at 8% -8%, rgba(232, 64, 63, 0.08), transparent 55%),
+      radial-gradient(700px 420px at 100% 0%, rgba(217, 119, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #faf9f7 0%, #f5e6df 45%, #faf9f7 100%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
@@ -68,7 +79,7 @@
   }
 
   ::selection {
-    background: rgba(13, 74, 86, 0.18);
+    background: rgba(232, 64, 63, 0.2);
   }
 
   :focus-visible {
@@ -191,7 +202,7 @@
   background: linear-gradient(
     90deg,
     var(--color-surface-muted) 0%,
-    #f4f7f6 45%,
+    #faf9f7 45%,
     var(--color-surface-muted) 90%
   );
   background-size: 200% 100%;

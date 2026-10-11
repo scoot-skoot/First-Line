@@ -12,12 +12,13 @@ export function ProgressBar({
   tone?: "teal" | "amber" | "risk";
 }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  // low/settling → peach; mid → orange; high → primary red
   const fill =
     tone === "amber"
       ? "bg-amber-600"
       : tone === "risk"
         ? "bg-risk"
-        : "bg-teal-700";
+        : "bg-peach";
 
   return (
     <div
