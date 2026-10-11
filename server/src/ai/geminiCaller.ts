@@ -30,9 +30,8 @@ export class GeminiCaller implements CallerModel {
       ? "The call just connected. Produce the caller's opening line as JSON."
       : transcriptAsText(input.history) + "\n\nProduce the next CALLER turn as JSON.";
 
-    // VERIFY IN DOCS: generation_config keys (max output tokens, thinking level)
-    // https://ai.google.dev/api/interactions-api
-    // VERIFY IN DOCS: store=false is the stateless opt-out (confirmed in interactions-overview)
+    // Fast path: flash model, no thinking budget, enough tokens so caller_line
+    // is never truncated mid-sentence by max_output_tokens.
     const res = await this.ai.interactions.create({
       model: config.geminiModel,
       system_instruction: system,
@@ -42,15 +41,31 @@ export class GeminiCaller implements CallerModel {
         mime_type: "application/json",
         schema: CALLER_TURN_JSON_SCHEMA,
       },
-      generation_config: { temperature: 0.9 },
+      generation_config: {
+        temperature: 0.9,
+        max_output_tokens: 1024,
+        // Interactions API / Gemini 3 thinking budget (0 = off when supported).
+        thinking_config: { thinking_budget: 0 },
+      } as Record<string, unknown>,
       store: false,
     });
 
-    // VERIFY IN DOCS: status/finish fields for blocked output on interaction object
     const text = (res as { output_text?: string }).output_text;
     if (!text || !String(text).trim()) {
       throw new Error("Gemini returned empty output_text");
     }
-    return callerTurnSchema.parse(JSON.parse(String(text)));
+    const parsed = JSON.parse(String(text)) as Record<string, unknown>;
+    // Coerce floats / missing fields before zod so a slightly messy model
+    // response still yields a full caller_line for transcript + TTS.
+    if (typeof parsed.distress === "number") {
+      parsed.distress = Math.round(parsed.distress);
+    }
+    if (typeof parsed.trust === "number") {
+      parsed.trust = Math.round(parsed.trust);
+    }
+    if (typeof parsed.caller_line === "string") {
+      parsed.caller_line = parsed.caller_line.trim();
+    }
+    return callerTurnSchema.parse(parsed);
   }
 }

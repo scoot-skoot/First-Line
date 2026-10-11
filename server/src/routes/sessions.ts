@@ -44,12 +44,32 @@ export function sessionsRouter(container: AppContainer): Router {
         res.status(404).json(apiError("NOT_FOUND", "Session not found"));
         return;
       }
+      const callerRemembers =
+        container.calls.getCallerRemembers(req.params.id) ??
+        (() => {
+          const opening = detail.turns.find((t) => t.speaker === "caller");
+          const fromState = opening?.state?.callerRemembers as
+            | { facts?: string[]; source?: string }
+            | undefined;
+          if (fromState?.facts?.length) {
+            return {
+              facts: fromState.facts,
+              source: (fromState.source as
+                | "backboard"
+                | "session_history"
+                | "seed"
+                | "none") ?? "session_history",
+            };
+          }
+          return { facts: [] as string[], source: "none" as const };
+        })();
       res.json({
         session: detail.session,
         turns: detail.turns.map((t) =>
           t.speaker === "caller" ? callerTurnView(t) : traineeTurnView(t),
         ),
         debrief: detail.debrief,
+        callerRemembers,
       });
     } catch (err) {
       res.status(500).json(apiError("INTERNAL", (err as Error).message));
@@ -66,11 +86,16 @@ export function sessionsRouter(container: AppContainer): Router {
         if (parsed.success) text = parsed.data.text;
       }
 
+      const uploaded = req.file;
+      const mimeType =
+        uploaded?.mimetype ||
+        (typeof req.body?.mimeType === "string" ? req.body.mimeType : undefined) ||
+        "audio/webm";
       const result = await container.calls.takeTurn({
         sessionId: req.params.id,
         text,
-        audio: req.file?.buffer,
-        mimeType: req.file?.mimetype,
+        audio: uploaded?.buffer,
+        mimeType,
       });
       res.status(201).json(result);
     } catch (err) {

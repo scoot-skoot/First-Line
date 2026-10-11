@@ -1,6 +1,7 @@
 /**
  * HUMAN-OWNED (David). Agent: keep signatures + comments; do not implement real SQL.
  * Each function has a simple working fallback (empty array) so the app does not break.
+ * Readiness Report uses Repository score/warning history instead of these stubs.
  */
 import type { Pool } from "pg";
 import type {
@@ -17,6 +18,7 @@ export async function leaderboard(
   _windowDays = 7,
 ): Promise<LeaderboardRow[]> {
   // TODO(David): implement hand-written SQL described above.
+  // Working fallback: empty list (UI shows "no opt-in trainees yet").
   return [];
 }
 
@@ -28,6 +30,7 @@ export async function skillProgress(
   _days = 14,
 ): Promise<SkillProgressRow[]> {
   // TODO(David): implement hand-written SQL described above.
+  // Working fallback: empty — ReadinessService computes trends from Repository.listScoreHistory.
   return [];
 }
 
@@ -38,6 +41,7 @@ export async function missedWarningSigns(
   _traineeId: string | null,
 ): Promise<MissedSignRow[]> {
   // TODO(David): implement hand-written SQL described above.
+  // Working fallback: empty — ReadinessService aggregates Repository.listWarningSignHistory.
   return [];
 }
 
@@ -48,5 +52,6 @@ export async function distressRecovery(
   _traineeId: string,
 ): Promise<DistressRecoveryRow[]> {
   // TODO(David): implement hand-written SQL described above.
+  // Working fallback: empty — see tigerQueries.traineeDistressBuckets for Timescale path.
   return [];
 }

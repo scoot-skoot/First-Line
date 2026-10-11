@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { ReadinessReport } from "../types";
+import type { ReadinessReport } from "@shared";
 import { featuresApi } from "../api";
 import {
   Badge,
@@ -69,10 +69,6 @@ export function ReadinessPage() {
         </h1>
         <Panel className="mt-6" role="alert">
           <p className="text-sm text-risk">{error ?? "Report unavailable"}</p>
-          <p className="mt-2 text-sm text-ink-muted">
-            Needs the features API (`GET /api/trainees/:id/readiness`). The page
-            styling is ready for when that lands.
-          </p>
           <Link to="/" className="mt-4 inline-block">
             <Button variant="secondary">Back to practice</Button>
           </Link>

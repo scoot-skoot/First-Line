@@ -17,6 +17,15 @@ function client(): ElevenLabsClient {
   return new ElevenLabsClient({ apiKey: config.elevenLabsApiKey });
 }
 
+function extensionForMime(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes("ogg")) return "ogg";
+  if (m.includes("mp4") || m.includes("m4a") || m.includes("aac")) return "m4a";
+  if (m.includes("wav")) return "wav";
+  if (m.includes("mpeg") || m.includes("mp3")) return "mp3";
+  return "webm";
+}
+
 /** E2: map distress/emotion → voiceSettings. */
 export function voiceSettingsForDistress(
   distress?: number,
@@ -34,15 +43,19 @@ export function voiceSettingsForDistress(
 export class ElevenLabsSpeechToText implements SpeechToText {
   async transcribe(audio: Buffer, mimeType: string): Promise<string> {
     const el = client();
-    // VERIFY IN DOCS: Scribe accepting audio/webm (opus) uploads directly
-    // https://elevenlabs.io/docs/eleven-api/guides/cookbooks/speech-to-text
-    // Copy into a plain ArrayBuffer so BlobPart typing accepts it (Node Buffer vs DOM).
+    const type = mimeType || "audio/webm";
+    const ext = extensionForMime(type);
+    // Plain ArrayBuffer + File with a matching extension — ElevenLabs rejects
+    // nameless/corrupt WebM blobs that MediaRecorder sometimes produces mid-chunk.
     const bytes = Uint8Array.from(audio);
+    const file = new File([bytes], `turn.${ext}`, { type });
+    if (file.size < 256) {
+      throw new Error("Audio clip too short");
+    }
     const result = await el.speechToText.convert({
-      file: new Blob([bytes], { type: mimeType || "audio/webm" }),
+      file,
       modelId: config.elevenLabsSttModel,
     });
-    // VERIFY IN DOCS: response type union (multichannel) — prefer .text when present
     const text = (result as { text?: string }).text;
     if (typeof text === "string" && text.trim()) return text.trim();
     throw new Error("ElevenLabs STT returned no text");
@@ -54,10 +67,7 @@ export class ElevenLabsTextToSpeech implements TextToSpeech {
     const el = client();
     const voiceId = opts.voiceId || config.elevenLabsDefaultVoiceId;
     const settings = voiceSettingsForDistress(opts.distress, opts.emotion);
-
-    // VERIFY IN DOCS: outputFormat option name/location in the SDK
-    // https://github.com/elevenlabs/elevenlabs-js — request body uses camelCase modelId;
-    // outputFormat is accepted on the stream request (query/body per SDK serializers).
+    // Never slice caller lines for TTS — pass the full turn text.
     const audio = await el.textToSpeech.stream(voiceId, {
       text,
       modelId: config.elevenLabsTtsModel,
@@ -70,6 +80,6 @@ export class ElevenLabsTextToSpeech implements TextToSpeech {
       },
     });
 
-    return Readable.fromWeb(audio as import("node:stream/web").ReadableStream);
+    return Readable.fromWeb(audio as import("stream/web").ReadableStream);
   }
 }

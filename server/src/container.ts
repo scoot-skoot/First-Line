@@ -8,7 +8,8 @@ import { MemoryRepository } from "./db/memoryRepository.js";
 import { PgRepository } from "./db/pgRepository.js";
 import type { Repository } from "./db/types.js";
 import { BackboardMemory } from "./memory/backboardMemory.js";
-import { NoopMemory } from "./memory/noopMemory.js";
+import { CompositeMemory } from "./memory/compositeMemory.js";
+import { LocalMemory } from "./memory/localMemory.js";
 import type { CallerMemory } from "./memory/types.js";
 import { CallService } from "./services/callService.js";
 import {
@@ -23,6 +24,7 @@ export interface AppContainer {
   caller: CallerModel;
   scorer: Scorer;
   memory: CallerMemory;
+  compositeMemory: CompositeMemory;
   stt: SpeechToText;
   tts: TextToSpeech;
   calls: CallService;
@@ -43,10 +45,11 @@ export function buildContainer(): AppContainer {
   const scorer: Scorer =
     config.aiProvider === "gemini" ? new GeminiScorer() : new MockScorer();
 
-  const memory: CallerMemory =
-    config.memoryProvider === "backboard"
-      ? new BackboardMemory(repo)
-      : new NoopMemory();
+  const localMemory = new LocalMemory(repo);
+  const primary =
+    config.memoryProvider === "backboard" ? new BackboardMemory(repo) : null;
+  const compositeMemory = new CompositeMemory(primary, localMemory);
+  const memory: CallerMemory = compositeMemory;
 
   const stt: SpeechToText =
     config.voiceProvider === "elevenlabs"
@@ -64,6 +67,7 @@ export function buildContainer(): AppContainer {
     caller,
     scorer,
     memory,
+    compositeMemory,
     stt,
     tts,
     calls,

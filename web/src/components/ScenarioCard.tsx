@@ -55,6 +55,19 @@ export function ScenarioCard({
           {scenario.title}
           <span className="mx-1.5 text-line-strong">·</span>
           {TIER_LABEL[scenario.difficultyTier] ?? "Practice"}
+          {scenario.personaVoiceId ? (
+            <>
+              <span className="mx-1.5 text-line-strong">·</span>
+              Voice{" "}
+              {scenario.personaVoiceId === "EXAVITQu4vr4xnSDxMaL"
+                ? "Sarah"
+                : scenario.personaVoiceId === "TX3LPaxmHKxFdv7VOQHJ"
+                  ? "Liam"
+                  : scenario.personaVoiceId === "21m00Tcm4TlvDq8ikWAM"
+                    ? "Rachel"
+                    : scenario.personaVoiceId.slice(0, 8)}
+            </>
+          ) : null}
         </p>
         {scenario.contentNotes.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5">

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   DebriefView,
   Emotion,
@@ -14,7 +15,13 @@ import type {
   TurnRecord,
 } from "../../../shared/types/index.js";
 import { getPool } from "./pool.js";
-import type { Repository } from "./types.js";
+import type {
+  CreatePlayableScenarioInput,
+  LocalMemoryFact,
+  Repository,
+  ScoreHistoryRow,
+  WarningSignHistoryRow,
+} from "./types.js";
 
 function mapSession(r: Record<string, unknown>): SessionRecord {
   return {
@@ -71,11 +78,12 @@ export class PgRepository implements Repository {
     const pool = getPool();
     const { rows } = await pool.query(
       `SELECT s.id, s.title, s.difficulty_tier, s.initial_distress, s.expected_risk_level,
-              s.call_number, p.name AS persona_name, p.age AS persona_age, p.content_notes
+              s.call_number, p.name AS persona_name, p.age AS persona_age, p.content_notes,
+              p.voice_id AS persona_voice_id
        FROM scenarios s
        JOIN personas p ON p.id = s.persona_id
-       WHERE s.is_active = true AND s.call_number = 1
-       ORDER BY s.difficulty_tier, s.title`,
+       WHERE s.is_active = true
+       ORDER BY s.difficulty_tier, s.call_number, s.title`,
     );
     return rows.map((r) => ({
       id: r.id,
@@ -87,6 +95,8 @@ export class PgRepository implements Repository {
       initialDistress: r.initial_distress,
       expectedRiskLevel: r.expected_risk_level,
       callNumber: r.call_number,
+      personaVoiceId: r.persona_voice_id,
+      isCallback: Number(r.call_number) > 1,
     }));
   }
 
@@ -154,6 +164,19 @@ export class PgRepository implements Repository {
       displayName: r.display_name,
       leaderboardOptIn: r.leaderboard_opt_in,
     }));
+  }
+
+  async getTrainee(id: string): Promise<Trainee | null> {
+    const { rows } = await getPool().query(
+      `SELECT id, display_name, leaderboard_opt_in FROM trainees WHERE id = $1`,
+      [id],
+    );
+    if (!rows[0]) return null;
+    return {
+      id: rows[0].id,
+      displayName: rows[0].display_name,
+      leaderboardOptIn: rows[0].leaderboard_opt_in,
+    };
   }
 
   async createSession(s: NewSession): Promise<SessionRecord> {
@@ -318,18 +341,233 @@ export class PgRepository implements Repository {
     personaId: string,
     patch: { backboardAssistantId?: string; callsCompleted?: number },
   ): Promise<void> {
+    // IMPORTANT: never INSERT NULL into calls_completed — Postgres DEFAULT only
+    // applies when the column is omitted, not when an explicit NULL is bound.
+    const callsCompleted =
+      patch.callsCompleted !== undefined && patch.callsCompleted !== null
+        ? patch.callsCompleted
+        : 0;
     await getPool().query(
       `INSERT INTO caller_relationships (trainee_id, persona_id, backboard_assistant_id, calls_completed)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (trainee_id, persona_id) DO UPDATE SET
-         backboard_assistant_id = COALESCE($3, caller_relationships.backboard_assistant_id),
-         calls_completed = COALESCE($4, caller_relationships.calls_completed)`,
+         backboard_assistant_id = COALESCE(EXCLUDED.backboard_assistant_id, caller_relationships.backboard_assistant_id),
+         calls_completed = CASE
+           WHEN $5::boolean THEN EXCLUDED.calls_completed
+           ELSE caller_relationships.calls_completed
+         END`,
       [
         traineeId,
         personaId,
         patch.backboardAssistantId ?? null,
-        patch.callsCompleted ?? null,
+        callsCompleted,
+        patch.callsCompleted !== undefined && patch.callsCompleted !== null,
       ],
     );
+  }
+
+  async listLocalMemories(
+    traineeId: string,
+    personaId: string,
+  ): Promise<LocalMemoryFact[]> {
+    const { rows } = await getPool().query(
+      `SELECT content, source, session_id, created_at
+       FROM caller_memory_facts
+       WHERE trainee_id = $1 AND persona_id = $2
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [traineeId, personaId],
+    );
+    return rows.map((r) => ({
+      content: String(r.content),
+      source: String(r.source),
+      sessionId: r.session_id ? String(r.session_id) : null,
+      createdAt: new Date(String(r.created_at)).toISOString(),
+    }));
+  }
+
+  async appendLocalMemories(
+    traineeId: string,
+    personaId: string,
+    facts: string[],
+    source = "session",
+    sessionId: string | null = null,
+  ): Promise<void> {
+    const pool = getPool();
+    for (const content of facts) {
+      if (!content.trim()) continue;
+      await pool.query(
+        `INSERT INTO caller_memory_facts (trainee_id, persona_id, content, source, session_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [traineeId, personaId, content.trim(), source, sessionId],
+      );
+    }
+  }
+
+  async createPlayableScenario(
+    input: CreatePlayableScenarioInput,
+  ): Promise<{ scenario: Scenario; persona: Persona; summary: ScenarioSummary }> {
+    const pool = getPool();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const personaId = randomUUID();
+      const scenarioId = randomUUID();
+      await client.query(
+        `INSERT INTO personas
+          (id, slug, name, age, voice_id, backstory, speaking_style, baseline_emotion, is_recurring, content_notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          personaId,
+          input.persona.slug,
+          input.persona.name,
+          input.persona.age,
+          input.persona.voiceId,
+          input.persona.backstory,
+          input.persona.speakingStyle,
+          input.persona.baselineEmotion,
+          input.persona.isRecurring,
+          input.persona.contentNotes,
+        ],
+      );
+      await client.query(
+        `INSERT INTO scenarios
+          (id, persona_id, title, call_number, difficulty_tier, situation_brief, hidden_state,
+           expected_risk_level, initial_distress, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true)`,
+        [
+          scenarioId,
+          personaId,
+          input.scenario.title,
+          input.scenario.callNumber,
+          input.scenario.difficultyTier,
+          input.scenario.situationBrief,
+          input.scenario.hiddenState,
+          input.scenario.expectedRiskLevel,
+          input.scenario.initialDistress,
+        ],
+      );
+      for (const code of input.scenario.warningSignCodes) {
+        const ws = await client.query(`SELECT id FROM warning_signs WHERE code = $1`, [
+          code,
+        ]);
+        if (!ws.rows[0]) continue;
+        await client.query(
+          `INSERT INTO scenario_warning_signs (scenario_id, warning_sign_id, cue_hint)
+           VALUES ($1,$2,$3)`,
+          [
+            scenarioId,
+            ws.rows[0].id,
+            input.scenario.warningSignHints[code] ?? `Hints at ${code}`,
+          ],
+        );
+      }
+      await client.query("COMMIT");
+
+      const persona: Persona = { id: personaId, ...input.persona };
+      const scenario: Scenario = {
+        id: scenarioId,
+        personaId,
+        title: input.scenario.title,
+        callNumber: input.scenario.callNumber,
+        difficultyTier: input.scenario.difficultyTier,
+        situationBrief: input.scenario.situationBrief,
+        hiddenState: input.scenario.hiddenState,
+        expectedRiskLevel: input.scenario.expectedRiskLevel,
+        initialDistress: input.scenario.initialDistress,
+        isActive: true,
+        warningSignCodes: input.scenario.warningSignCodes,
+        warningSignHints: input.scenario.warningSignHints,
+      };
+      return {
+        scenario,
+        persona,
+        summary: {
+          id: scenario.id,
+          title: scenario.title,
+          personaName: persona.name,
+          personaAge: persona.age,
+          difficultyTier: scenario.difficultyTier,
+          contentNotes: persona.contentNotes,
+          initialDistress: scenario.initialDistress,
+          expectedRiskLevel: scenario.expectedRiskLevel,
+          callNumber: scenario.callNumber,
+          personaVoiceId: persona.voiceId,
+          isCallback: false,
+        },
+      };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listScoreHistory(traineeId: string): Promise<ScoreHistoryRow[]> {
+    const { rows } = await getPool().query(
+      `SELECT s.id AS session_id, s.ended_at, s.overall_score,
+              sc.skill, sc.score, scn.title AS scenario_title, p.name AS persona_name
+       FROM sessions s
+       JOIN scores sc ON sc.session_id = s.id
+       JOIN scenarios scn ON scn.id = s.scenario_id
+       JOIN personas p ON p.id = s.persona_id
+       WHERE s.trainee_id = $1 AND s.status = 'completed' AND s.ended_at IS NOT NULL
+       ORDER BY s.ended_at ASC`,
+      [traineeId],
+    );
+    return rows.map((r) => ({
+      sessionId: String(r.session_id),
+      endedAt: new Date(String(r.ended_at)).toISOString(),
+      overallScore: r.overall_score == null ? null : Number(r.overall_score),
+      skill: r.skill,
+      score: Number(r.score),
+      scenarioTitle: String(r.scenario_title),
+      personaName: String(r.persona_name),
+    }));
+  }
+
+  async listWarningSignHistory(traineeId: string): Promise<WarningSignHistoryRow[]> {
+    const { rows } = await getPool().query(
+      `SELECT ws.code, ws.label, ws.fcp_category, sws.status, s.id AS session_id
+       FROM session_warning_signs sws
+       JOIN warning_signs ws ON ws.id = sws.warning_sign_id
+       JOIN sessions s ON s.id = sws.session_id
+       WHERE s.trainee_id = $1 AND s.status = 'completed'`,
+      [traineeId],
+    );
+    return rows.map((r) => ({
+      code: String(r.code),
+      label: String(r.label),
+      fcpCategory: String(r.fcp_category),
+      status: r.status,
+      sessionId: String(r.session_id),
+    }));
+  }
+
+  async listDistressPointsForTrainee(
+    traineeId: string,
+    limit = 40,
+  ): Promise<{ sessionId: string; seq: number; distress: number; at: string }[]> {
+    const { rows } = await getPool().query(
+      `SELECT t.session_id, t.seq, t.distress, t.created_at
+       FROM turns t
+       JOIN sessions s ON s.id = t.session_id
+       WHERE s.trainee_id = $1
+         AND s.status = 'completed'
+         AND t.speaker = 'caller'
+         AND t.distress IS NOT NULL
+       ORDER BY t.created_at DESC
+       LIMIT $2`,
+      [traineeId, limit],
+    );
+    return rows
+      .map((r) => ({
+        sessionId: String(r.session_id),
+        seq: Number(r.seq),
+        distress: Number(r.distress),
+        at: new Date(String(r.created_at)).toISOString(),
+      }))
+      .reverse();
   }
 }

@@ -30,8 +30,8 @@ export function Call() {
   const [ending, setEnding] = useState(false);
   const [escalated, setEscalated] = useState(false);
   const [callerName, setCallerName] = useState("Caller");
-  /** Placeholder for features-agent remembered facts (Backboard). */
-  const [rememberedFacts] = useState<string[]>([]);
+  const [callerVoiceLabel, setCallerVoiceLabel] = useState<string | null>(null);
+  const [rememberedFacts, setRememberedFacts] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pausedRef = useRef(false);
@@ -68,10 +68,25 @@ export function Call() {
       setTurns(data.turns);
       setMode(data.session.mode);
       if (data.session.status !== "in_progress") setCallEnded(true);
+      const facts = data.callerRemembers?.facts ?? [];
+      setRememberedFacts(facts);
       try {
         const sc = await api.scenarios();
         const match = sc.scenarios.find((s) => s.id === data.session.scenarioId);
-        if (match) setCallerName(match.personaName);
+        if (match) {
+          setCallerName(match.personaName);
+          if (match.personaVoiceId) {
+            const voiceHint =
+              match.personaVoiceId === "EXAVITQu4vr4xnSDxMaL"
+                ? "Sarah"
+                : match.personaVoiceId === "TX3LPaxmHKxFdv7VOQHJ"
+                  ? "Liam"
+                  : match.personaVoiceId === "21m00Tcm4TlvDq8ikWAM"
+                    ? "Rachel"
+                    : match.personaVoiceId.slice(0, 8);
+            setCallerVoiceLabel(voiceHint);
+          }
+        }
       } catch {
         /* optional enrichment */
       }
@@ -97,13 +112,30 @@ export function Call() {
     });
   }
 
+  function appendTurns(traineeTurn: TurnView, callerTurn: TurnView) {
+    // Coerce meter fields so a partial API shape never blanks the overlay.
+    const caller: TurnView = {
+      ...callerTurn,
+      text: callerTurn.text ?? "",
+      distress:
+        callerTurn.distress == null || !Number.isFinite(Number(callerTurn.distress))
+          ? null
+          : Math.round(Number(callerTurn.distress)),
+      trust:
+        callerTurn.trust == null || !Number.isFinite(Number(callerTurn.trust))
+          ? null
+          : Math.round(Number(callerTurn.trust)),
+    };
+    setTurns((t) => [...t, { ...traineeTurn, text: traineeTurn.text ?? "" }, caller]);
+  }
+
   async function sendText(value: string) {
     if (!value.trim() || busy || paused || callEnded) return;
     setBusy(true);
     setToast(null);
     try {
       const res = await api.postTextTurn(id, value.trim());
-      setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
+      appendTurns(res.traineeTurn, res.callerTurn);
       setText("");
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
@@ -120,12 +152,20 @@ export function Call() {
     setToast(null);
     try {
       const res = await api.postAudioTurn(id, blob);
-      setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
+      appendTurns(res.traineeTurn, res.callerTurn);
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
     } catch (e) {
-      setToast(`${(e as Error).message} — try typing instead.`);
+      const msg = (e as Error).message || "Speech recognition failed";
+      const sttFail =
+        /speech recognition|stt|invalid_audio|corrupted|audio/i.test(msg) ||
+        (e as { code?: string }).code === "STT_FAILED";
       setMode("text");
+      setToast(
+        sttFail
+          ? "Couldn't hear that clearly — type your reply below and send."
+          : `${msg} — try typing instead.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -165,6 +205,9 @@ export function Call() {
               <h1 className="font-display text-xl font-semibold text-ink">
                 {callerName}
               </h1>
+              {callerVoiceLabel ? (
+                <p className="text-xs text-ink-muted">Voice · {callerVoiceLabel}</p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -180,17 +223,16 @@ export function Call() {
           </div>
         </div>
 
-        {/* Slot for features-agent remembered facts */}
         <div className="mb-3 flex min-h-[1.75rem] flex-wrap gap-2" data-slot="caller-remembers">
           {rememberedFacts.length > 0 ? (
-            rememberedFacts.map((fact) => (
-              <Chip key={fact} tone="memory">
-                Caller remembers: {fact}
+            rememberedFacts.slice(0, 3).map((fact) => (
+              <Chip key={fact} tone="memory" title={fact}>
+                Caller remembers: {fact.length > 72 ? `${fact.slice(0, 69)}…` : fact}
               </Chip>
             ))
           ) : (
             <Chip tone="muted" className="opacity-70">
-              Caller remembers: — (will appear on callbacks)
+              Caller remembers: — (appears on callbacks)
             </Chip>
           )}
         </div>
@@ -256,6 +298,9 @@ export function Call() {
               <PushToTalkButton
                 disabled={busy || paused || callEnded}
                 onClip={sendAudio}
+                onTooShort={() =>
+                  setToast("Hold the mic a half-second longer, then release.")
+                }
               />
             )}
             <Button

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppHeader } from "./components/AppHeader";
 import { CrisisBanner } from "./components/CrisisBanner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { BuildCallerPage } from "./features/build-a-caller/BuildCallerPage";
 import { ReadinessPage } from "./features/readiness/ReadinessPage";
 import { Call } from "./pages/Call";
@@ -14,14 +15,23 @@ export default function App() {
         <CrisisBanner />
         <AppHeader />
         <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/call/:id" element={<Call />} />
-            <Route path="/debrief/:id" element={<Debrief />} />
-            <Route path="/readiness" element={<ReadinessPage />} />
-            <Route path="/build-a-caller" element={<BuildCallerPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <ErrorBoundary label="app">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route
+                path="/call/:id"
+                element={
+                  <ErrorBoundary label="practice call">
+                    <Call />
+                  </ErrorBoundary>
+                }
+              />
+              <Route path="/debrief/:id" element={<Debrief />} />
+              <Route path="/readiness" element={<ReadinessPage />} />
+              <Route path="/build-a-caller" element={<BuildCallerPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </BrowserRouter>

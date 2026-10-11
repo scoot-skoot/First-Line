@@ -1,7 +1,7 @@
 -- db/schema.sql  (idempotent for db:reset: drop + create)
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-DROP TABLE IF EXISTS session_warning_signs, scores, debriefs, turns, sessions,
+DROP TABLE IF EXISTS session_warning_signs, scores, debriefs, turns, caller_memory_facts, sessions,
   caller_relationships, scenario_warning_signs, warning_signs, scenarios, personas, trainees CASCADE;
 
 CREATE TABLE trainees (
@@ -73,6 +73,19 @@ CREATE TABLE sessions (
   branched_from_seq  int
 );
 CREATE INDEX sessions_trainee_ended_idx ON sessions (trainee_id, ended_at);
+
+-- Local/session-history memory fallback when Backboard is slow or MEMORY_PROVIDER=none
+CREATE TABLE caller_memory_facts (
+  id          bigserial PRIMARY KEY,
+  trainee_id  uuid NOT NULL REFERENCES trainees(id) ON DELETE CASCADE,
+  persona_id  uuid NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+  content     text NOT NULL,
+  source      text NOT NULL DEFAULT 'session', -- session | seed | backboard
+  session_id  uuid REFERENCES sessions(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX caller_memory_facts_pair_idx
+  ON caller_memory_facts (trainee_id, persona_id, created_at DESC);
 
 CREATE TABLE turns (
   id                      bigserial PRIMARY KEY,

@@ -48,8 +48,14 @@ All keys are **server-side only** (`server/.env`). The web app only needs `VITE_
 | `npm run dev` | Server (:3001) + web (:5173) |
 | `npm run smoke` | Five API smoke tests (OK/FAIL; missing key → FAIL naming the var) |
 | `npm run db:reset` | Apply `db/schema.sql` + `db/seed.sql` |
+| `npm run build` | Server `tsc` + Vite `web/dist` (Render uses this) |
+| `npm start` | Serve API + `web/dist` on `PORT` (default 3001) |
 | `npm run typecheck` | Server `tsc` + web build |
 | `npm run test` | Distress clamp unit tests |
+
+## Deploy (Render)
+
+Single web service — see **[docs/DEPLOY.md](docs/DEPLOY.md)**. Blueprint: [`render.yaml`](render.yaml) (`npm run build` → `npm start`, health `/api/health`).
 
 ## Layout
 

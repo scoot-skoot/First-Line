@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { BuildCallerResponse } from "../types";
+import type { BuildCallerResponse } from "@shared";
 import { featuresApi } from "../api";
 import {
   Badge,
@@ -83,10 +83,6 @@ export function BuildCallerPage() {
           role="alert"
         >
           {error}
-          <span className="mt-1 block text-ink-muted">
-            Needs the features API (`POST /api/scenarios/build`). UI is ready
-            once that endpoint is available.
-          </span>
         </p>
       )}
 
@@ -116,8 +112,11 @@ export function BuildCallerPage() {
                 ) : null}
               </div>
               <p className="mt-1 text-sm text-ink-muted">
-                Voice {result.draft.voiceName} · initial distress{" "}
-                {result.draft.initialDistress}
+                Voice {result.draft.voiceName}
+                {result.persona.voiceId
+                  ? ` · ${result.persona.voiceId.slice(0, 8)}…`
+                  : ""}{" "}
+                · initial distress {result.draft.initialDistress}
               </p>
             </div>
           </div>

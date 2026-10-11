@@ -1,5 +1,6 @@
 import type {
   CallMode,
+  CallerRemembersView,
   CallerTurnView,
   DebriefView,
   HealthResponse,
@@ -7,10 +8,11 @@ import type {
   SessionRecord,
   TurnView,
 } from "@shared";
+import { withStartupRetry } from "./retry";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestOnce<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -40,6 +42,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  // Retry GETs so the SPA survives the API coming up a second later.
+  if (method === "GET") {
+    return withStartupRetry(() => requestOnce<T>(path, init));
+  }
+  return requestOnce<T>(path, init);
+}
+
 export const api = {
   health: () => request<HealthResponse>("/api/health"),
   trainees: () =>
@@ -50,7 +61,11 @@ export const api = {
     scenarioId: string;
     mode: CallMode;
   }) =>
-    request<{ session: SessionRecord; openingTurn: CallerTurnView }>("/api/sessions", {
+    request<{
+      session: SessionRecord;
+      openingTurn: CallerTurnView;
+      callerRemembers?: CallerRemembersView;
+    }>("/api/sessions", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -59,6 +74,7 @@ export const api = {
       session: SessionRecord;
       turns: TurnView[];
       debrief: DebriefView | null;
+      callerRemembers?: CallerRemembersView;
     }>(`/api/sessions/${id}`),
   postTextTurn: (id: string, text: string) =>
     request<{
@@ -71,7 +87,18 @@ export const api = {
     }),
   postAudioTurn: async (id: string, blob: Blob) => {
     const form = new FormData();
-    form.append("audio", blob, "turn.webm");
+    const mime = blob.type || "audio/webm";
+    const ext = mime.includes("mp4")
+      ? "m4a"
+      : mime.includes("ogg")
+        ? "ogg"
+        : mime.includes("wav")
+          ? "wav"
+          : mime.includes("mpeg") || mime.includes("mp3")
+            ? "mp3"
+            : "webm";
+    // Filename + blob type must match so multer/ElevenLabs see playable audio.
+    form.append("audio", blob, `turn.${ext}`);
     return request<{
       traineeTurn: TurnView;
       callerTurn: CallerTurnView;

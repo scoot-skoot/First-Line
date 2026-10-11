@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/src/index.js",
+    "start": "node dist/server/src/index.js",
     "smoke": "tsx scripts/smoke/all.ts",
     "smoke:gemini": "tsx scripts/smoke/gemini.ts",
     "smoke:tts": "tsx scripts/smoke/tts.ts",
