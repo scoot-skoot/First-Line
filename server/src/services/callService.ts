@@ -3,8 +3,11 @@ import type {
   CallerRemembersView,
   CallerTurnView,
   DebriefView,
+  Persona,
+  Scenario,
   ScoringOutput,
   SessionRecord,
+  TurnRecord,
   TurnView,
 } from "../../../shared/types/index.js";
 import type { CallerModel, Scorer } from "../ai/types.js";
@@ -21,6 +24,13 @@ import { callerTurnView, traineeTurnView } from "./views.js";
 type StageTimer = {
   mark: (stage: string) => void;
   done: () => Record<string, number>;
+};
+
+type SessionCtx = {
+  session: SessionRecord;
+  scenario: Scenario;
+  persona: Persona;
+  turns: TurnRecord[];
 };
 
 function startTimer(): StageTimer {
@@ -50,6 +60,8 @@ function logTiming(label: string, marks: Record<string, number>): void {
 export class CallService {
   private consecutiveFallbacks = new Map<string, number>();
   private sessionMemories = new Map<string, CallerRemembersView>();
+  /** Hot path cache: scenario/persona/turns — avoids redundant DB reads per turn. */
+  private sessionCtx = new Map<string, SessionCtx>();
 
   constructor(
     private repo: Repository,
@@ -69,9 +81,26 @@ export class CallService {
     return this.sessionMemories.get(sessionId) ?? null;
   }
 
-  /** Cached facts for this session — never hit Backboard mid-call. */
   private memoriesForSession(sessionId: string): string[] {
     return this.sessionMemories.get(sessionId)?.facts ?? [];
+  }
+
+  private async loadCtx(sessionId: string): Promise<SessionCtx> {
+    const hit = this.sessionCtx.get(sessionId);
+    if (hit) return hit;
+    const detail = await this.repo.getSession(sessionId);
+    if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
+    const { scenario, persona } = await this.repo.getScenarioWithPersona(
+      detail.session.scenarioId,
+    );
+    const ctx: SessionCtx = {
+      session: detail.session,
+      scenario,
+      persona,
+      turns: detail.turns,
+    };
+    this.sessionCtx.set(sessionId, ctx);
+    return ctx;
   }
 
   async startSession(opts: {
@@ -89,7 +118,6 @@ export class CallService {
     );
     timer.mark("scenario");
 
-    // Prefetch memory in parallel with session create — hard-capped by CompositeMemory (~1s).
     const recallPromise = this.memory.recall(opts.traineeId, persona.id);
     const sessionPromise = this.repo.createSession({
       traineeId: opts.traineeId,
@@ -146,6 +174,13 @@ export class CallService {
     saved.latencyMs = startMarks.total ?? null;
     logTiming(`startSession ${session.id.slice(0, 8)}`, startMarks);
 
+    this.sessionCtx.set(session.id, {
+      session,
+      scenario,
+      persona,
+      turns: [saved],
+    });
+
     return { session, openingTurn: callerTurnView(saved), callerRemembers };
   }
 
@@ -160,12 +195,11 @@ export class CallService {
     callEnded: boolean;
   }> {
     const timer = startTimer();
-    const detail = await this.repo.getSession(opts.sessionId);
-    if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
-    if (detail.session.status !== "in_progress") {
+    const ctx = await this.loadCtx(opts.sessionId);
+    if (ctx.session.status !== "in_progress") {
       throw Object.assign(new Error("Session is not in progress"), { status: 409 });
     }
-    timer.mark("load_session");
+    timer.mark("load_ctx");
 
     let traineeText = opts.text?.trim() ?? "";
     if (!traineeText && opts.audio) {
@@ -189,29 +223,21 @@ export class CallService {
       throw Object.assign(new Error("text or audio required"), { status: 400 });
     }
 
-    // Scenario + trainee DB write in parallel (no Backboard on critical path).
-    const scenarioPromise = this.repo.getScenarioWithPersona(
-      detail.session.scenarioId,
-    );
-    const traineeWritePromise = this.repo.appendTurn({
+    const { scenario, persona } = ctx;
+
+    const traineeTurn = await this.repo.appendTurn({
       sessionId: opts.sessionId,
       speaker: "trainee",
       text: traineeText,
       latencyMs: null,
     });
+    timer.mark("db_trainee");
 
-    const [{ scenario, persona }, traineeTurn] = await Promise.all([
-      scenarioPromise,
-      traineeWritePromise,
-    ]);
-    timer.mark("db_trainee+scenario");
-
-    const history = [...detail.turns, traineeTurn];
-    const lastCaller = [...detail.turns]
+    const history = [...ctx.turns, traineeTurn];
+    const lastCaller = [...ctx.turns]
       .reverse()
       .find((t) => t.speaker === "caller");
     const currentDistress = lastCaller?.distress ?? scenario.initialDistress;
-    // Prefetched at call start — never await Backboard mid-turn.
     const memories = this.memoriesForSession(opts.sessionId);
     timer.mark("memory_cache");
 
@@ -263,12 +289,14 @@ export class CallService {
     });
     timer.mark("db_caller");
     const turnMarks = timer.done();
-    // Stamp latency after write using measured total.
     callerSaved.latencyMs = turnMarks.total ?? null;
     logTiming(`takeTurn ${opts.sessionId.slice(0, 8)}`, turnMarks);
 
-    // Kick TTS warm-up off the critical path (audio fetched via separate GET).
-    void this.tts;
+    ctx.turns = [...history, callerSaved];
+    if (shouldEnd) {
+      ctx.session = { ...ctx.session, status: "completed" };
+    }
+    this.sessionCtx.set(opts.sessionId, ctx);
 
     return {
       traineeTurn: traineeTurnView(traineeTurn),
@@ -282,9 +310,9 @@ export class CallService {
     if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
     if (detail.debrief) return detail.debrief;
 
-    const { scenario, persona } = await this.repo.getScenarioWithPersona(
-      detail.session.scenarioId,
-    );
+    const ctx = this.sessionCtx.get(sessionId);
+    const { scenario, persona } =
+      ctx ?? (await this.repo.getScenarioWithPersona(detail.session.scenarioId));
 
     let output: ScoringOutput;
     try {
@@ -295,7 +323,7 @@ export class CallService {
       });
     } catch (err) {
       console.warn("[call] scoring failed:", (err as Error).message);
-      throw Object.assign(new Error("Debrief unavailable, try again"), {
+      throw Object.assign(new Error("Debrief unavailable, try again."), {
         status: 502,
         code: "SCORING_FAILED",
       });
@@ -304,7 +332,6 @@ export class CallService {
     const overall = computeOverallScore(output);
     await this.repo.completeSession(sessionId, output, overall);
 
-    // Persist caller-POV facts for callbacks (local await; Backboard fire-and-forget).
     const traineeLines = detail.turns
       .filter((t) => t.speaker === "trainee")
       .map((t) => t.text.trim())
@@ -328,12 +355,14 @@ export class CallService {
       output.summary.slice(0, 180),
     ].filter(Boolean);
 
-    // Don't block debrief on Backboard — CompositeMemory remembers locally then FF primary.
     void this.memory
       .remember(detail.session.traineeId, persona.id, facts)
       .catch((err) =>
         console.warn("[call] memory.remember failed:", (err as Error).message),
       );
+
+    this.sessionCtx.delete(sessionId);
+    this.sessionMemories.delete(sessionId);
 
     const updated = await this.repo.getSession(sessionId);
     if (!updated?.debrief) {
@@ -357,16 +386,32 @@ export class CallService {
     stream: NodeJS.ReadableStream;
     contentType: string;
   }> {
-    const detail = await this.repo.getSession(sessionId);
-    if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
-    const turn = detail.turns.find((t) => t.seq === seq && t.speaker === "caller");
-    if (!turn) throw Object.assign(new Error("Caller turn not found"), { status: 404 });
+    const ctx = this.sessionCtx.get(sessionId);
+    let turn: TurnRecord | undefined;
+    let voiceId: string | null | undefined;
 
-    const { persona } = await this.repo.getScenarioWithPersona(
-      detail.session.scenarioId,
-    );
+    if (ctx) {
+      turn = ctx.turns.find((t) => t.seq === seq && t.speaker === "caller");
+      voiceId = ctx.persona.voiceId;
+    }
+
+    if (!turn) {
+      const detail = await this.repo.getSession(sessionId);
+      if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
+      turn = detail.turns.find((t) => t.seq === seq && t.speaker === "caller");
+      if (!turn) {
+        throw Object.assign(new Error("Caller turn not found"), { status: 404 });
+      }
+      if (!voiceId) {
+        const { persona } = await this.repo.getScenarioWithPersona(
+          detail.session.scenarioId,
+        );
+        voiceId = persona.voiceId;
+      }
+    }
+
     const stream = await this.tts.stream(turn.text, {
-      voiceId: persona.voiceId || config.elevenLabsDefaultVoiceId,
+      voiceId: voiceId || config.elevenLabsDefaultVoiceId,
       distress: turn.distress ?? undefined,
       emotion: turn.emotion ?? undefined,
     });

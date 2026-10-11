@@ -6,7 +6,7 @@ import { cn } from "../ui/cn";
 const nav = [
   { to: "/", label: "Practice", end: true },
   { to: "/readiness", label: "Readiness" },
-  { to: "/build-a-caller", label: "Build-a-Caller" },
+  { to: "/build-a-caller", label: "Build a Caller" },
 ];
 
 export function AppHeader() {
@@ -14,7 +14,7 @@ export function AppHeader() {
     <header className="border-b border-line bg-surface/90 backdrop-blur-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-6">
-          <Wordmark size="sm" />
+          <Wordmark size="md" />
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
             {nav.map((item) => (
               <NavLink

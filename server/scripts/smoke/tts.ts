@@ -17,7 +17,7 @@ async function main(): Promise<boolean> {
     const { value: bytes, ms } = await timed(async () => {
       const el = new ElevenLabsClient({ apiKey: key });
       const audio = await el.textToSpeech.stream(voiceId, {
-        text: "This is a SteadyLine voice test.",
+        text: "This is a First Line voice test.",
         modelId: process.env.ELEVENLABS_TTS_MODEL ?? "eleven_flash_v2_5",
         outputFormat: "mp3_44100_128",
       });
