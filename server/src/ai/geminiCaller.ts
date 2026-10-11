@@ -44,8 +44,6 @@ export class GeminiCaller implements CallerModel {
       generation_config: {
         temperature: 0.9,
         max_output_tokens: 1024,
-        // Interactions API / Gemini 3 thinking budget (0 = off when supported).
-        thinking_config: { thinking_budget: 0 },
       } as Record<string, unknown>,
       store: false,
     });
