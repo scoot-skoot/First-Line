@@ -15,7 +15,7 @@ export function DistressCurveMark({
       ? "var(--color-amber-600)"
       : tone === "ink"
         ? "var(--color-ink-muted)"
-        : "var(--color-brand)";
+        : "var(--color-teal-700)";
 
   return (
     <svg
@@ -85,8 +85,8 @@ export function DistressCurveChart({
     >
       <defs>
         <linearGradient id="curveFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(232, 64, 63, 0.18)" />
-          <stop offset="100%" stopColor="rgba(232, 64, 63, 0)" />
+          <stop offset="0%" stopColor="rgba(13, 74, 86, 0.18)" />
+          <stop offset="100%" stopColor="rgba(13, 74, 86, 0)" />
         </linearGradient>
       </defs>
       {[0, 40, 70, 100].map((level) => {

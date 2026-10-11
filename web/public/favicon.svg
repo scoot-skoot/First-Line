@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <title>First Line</title>
-  <rect width="64" height="64" rx="14" fill="#8B1820"/>
+  <rect width="64" height="64" rx="14" fill="#0d4a56"/>
   <path
     d="M8 36 C16 36, 18 18, 28 20 C38 22, 40 44, 50 34 C56 28, 58 18, 58 16"
-    stroke="#E8403F"
+    stroke="#e8c07a"
     stroke-width="4"
     stroke-linecap="round"
     stroke-linejoin="round"

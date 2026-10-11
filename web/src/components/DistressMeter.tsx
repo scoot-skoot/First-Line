@@ -136,7 +136,7 @@ export function DistressMeter({
           <svg width={w} height={h} className="opacity-90" aria-hidden>
             <polyline
               fill="none"
-              stroke="var(--color-brand)"
+              stroke="var(--color-teal-700)"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"

@@ -1,11 +1,11 @@
 import { cn } from "./cn";
 
 const PALETTES = [
-  { bg: "#F5E6DF", fg: "#8B1820" },
-  { bg: "#FCC199", fg: "#8B1820" },
-  { bg: "#F5E6DF", fg: "#D97700" },
-  { bg: "#FCC199", fg: "#5A0F14" },
-  { bg: "#EFE0D8", fg: "#8B1820" },
+  { bg: "#d5e8eb", fg: "#0d4a56" },
+  { bg: "#f5e8d4", fg: "#9a6a24" },
+  { bg: "#dde8e4", fg: "#2f7a62" },
+  { bg: "#f3e4e0", fg: "#8a4e42" },
+  { bg: "#e4e0ef", fg: "#4a4568" },
 ];
 
 function hashName(name: string): number {
