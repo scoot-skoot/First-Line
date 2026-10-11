@@ -73,7 +73,7 @@ export function Home() {
               id="practice-heading"
               className="text-lg font-semibold text-ink"
             >
-              Next practice call
+              Next Practice Call
             </h2>
             <p className="text-sm text-ink-muted">
               One focused practice at a time — pick a caller and begin.
@@ -90,7 +90,7 @@ export function Home() {
               to="/build-a-caller"
               className="font-medium text-teal-800 hover:underline"
             >
-              Build-a-Caller
+              Build a Caller
             </Link>
           </div>
         </div>
@@ -113,7 +113,7 @@ export function Home() {
             </p>
           </Panel>
         ) : (
-          <div className="space-y-3">
+          <div className="animate-fade-in space-y-3">
             {scenarios.map((s, i) => (
               <ScenarioCard
                 key={s.id}

@@ -100,9 +100,22 @@
   0%,
   100% {
     stroke-dashoffset: 0;
+    opacity: 1;
   }
   50% {
     stroke-dashoffset: 8;
+    opacity: 0.72;
+  }
+}
+
+@keyframes caller-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -140,7 +153,15 @@
 
 .animate-breath {
   stroke-dasharray: 6 10;
-  animation: breath-line 4.5s ease-in-out infinite;
+  animation: breath-line 4s ease-in-out infinite;
+}
+
+.animate-caller-line {
+  animation: caller-line-in 400ms ease-out both;
+}
+
+.meter-value {
+  transition: color 400ms ease-in-out, opacity 400ms ease-in-out;
 }
 
 .animate-draw-curve {
@@ -152,6 +173,41 @@
   animation: soft-pulse 1.8s ease-in-out infinite;
 }
 
+/* Screen / state transitions — fixed height space, no layout jank */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 200ms ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 180ms ease-out both;
+}
+
+.transition-ui {
+  transition-property: opacity, transform, background-color, color, border-color;
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+}
+
 .shimmer {
   background: linear-gradient(
     90deg,
@@ -161,4 +217,26 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-breath,
+  .animate-draw-curve,
+  .animate-soft-pulse,
+  .animate-page-enter,
+  .animate-fade-in,
+  .animate-caller-line,
+  .shimmer {
+    animation: none !important;
+  }
+
+  .transition-ui,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-transform,
+  .meter-value {
+    transition: none !important;
+  }
 }

@@ -200,7 +200,7 @@ export function Call() {
             <CallerAvatar name={callerName} size="md" />
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-ink-faint">
-                Live practice call
+                Practice call
               </p>
               <h1 className="font-display text-xl font-semibold text-ink">
                 {callerName}
