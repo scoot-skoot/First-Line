@@ -13,6 +13,12 @@ const RISK_TONE: Record<string, "teal" | "amber" | "risk"> = {
   high: "risk",
 };
 
+function sentenceCase(s: string): string {
+  const t = s.trim();
+  if (!t) return t;
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
 export function ScenarioCard({
   scenario,
   onSelect,
@@ -24,6 +30,8 @@ export function ScenarioCard({
   busy?: boolean;
   featured?: boolean;
 }) {
+  const riskLabel = sentenceCase(scenario.expectedRiskLevel);
+
   return (
     <article
       className={`animate-fade-up flex flex-col gap-4 rounded-lg border bg-surface-raised p-4 shadow-sm shadow-teal-950/5 sm:flex-row sm:items-center ${
@@ -37,7 +45,7 @@ export function ScenarioCard({
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
           <Badge tone="teal">Tier {scenario.difficultyTier}</Badge>
           <Badge tone={RISK_TONE[scenario.expectedRiskLevel] ?? "neutral"}>
-            {scenario.expectedRiskLevel} risk
+            {riskLabel} risk
           </Badge>
           {scenario.callNumber > 1 ? (
             <Badge tone="amber">Callback #{scenario.callNumber}</Badge>
@@ -51,32 +59,22 @@ export function ScenarioCard({
             </span>
           ) : null}
         </h2>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          {scenario.title}
-          <span className="mx-1.5 text-line-strong">·</span>
+        {/* Shared meta line: same size/weight/color on every card; no voice names */}
+        <p className="mt-1 text-sm font-normal leading-snug text-ink-muted">
+          {sentenceCase(scenario.title)}
+          <span className="mx-1.5 text-ink-faint" aria-hidden>
+            ·
+          </span>
           {TIER_LABEL[scenario.difficultyTier] ?? "Practice"}
-          {scenario.personaVoiceId ? (
-            <>
-              <span className="mx-1.5 text-line-strong">·</span>
-              Voice{" "}
-              {scenario.personaVoiceId === "EXAVITQu4vr4xnSDxMaL"
-                ? "Sarah"
-                : scenario.personaVoiceId === "TX3LPaxmHKxFdv7VOQHJ"
-                  ? "Liam"
-                  : scenario.personaVoiceId === "21m00Tcm4TlvDq8ikWAM"
-                    ? "Rachel"
-                    : scenario.personaVoiceId.slice(0, 8)}
-            </>
-          ) : null}
         </p>
         {scenario.contentNotes.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {scenario.contentNotes.slice(0, 3).map((n) => (
               <li
                 key={n}
-                className="rounded border border-line bg-surface-muted px-2 py-0.5 text-xs text-ink-muted"
+                className="rounded border border-line bg-surface-muted px-2 py-0.5 text-xs font-medium text-ink-muted"
               >
-                {n}
+                {sentenceCase(n)}
               </li>
             ))}
           </ul>
