@@ -55,7 +55,7 @@ All keys are **server-side only** (`server/.env`). The web app only needs `VITE_
 
 ## Deploy (Render)
 
-Single web service via [`render.yaml`](render.yaml): `npm run install:all && npm run build`, then `npm start`. Health check: `/api/health`. The Express server serves `web/dist` so the UI and API share one origin (`VITE_API_URL` can stay empty). Set `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `BACKBOARD_API_KEY`, and `DATABASE_URL` in the Render dashboard; run `npm run db:reset` once against Tiger Cloud (and migration `003_caller_relationships_defaults.sql` if the DB already existed).
+Single web service — see **[docs/DEPLOY.md](docs/DEPLOY.md)**. Blueprint: [`render.yaml`](render.yaml) (`npm run build` → `npm start`, health `/api/health`).
 
 ## Layout
 
