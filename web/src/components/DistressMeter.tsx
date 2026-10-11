@@ -18,9 +18,21 @@ function formatDelta(delta: number): string {
   return "0";
 }
 
-function useTweened(value: number, ms = 220): number {
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/** Ease displayed meter numbers toward the target (~400ms). */
+function useTweened(value: number, ms = 400): number {
   const [shown, setShown] = useState(value);
   useEffect(() => {
+    if (prefersReducedMotion()) {
+      setShown(value);
+      return;
+    }
     const start = shown;
     const delta = value - start;
     if (delta === 0) return;
@@ -36,7 +48,7 @@ function useTweened(value: number, ms = 220): number {
     return () => cancelAnimationFrame(raf);
     // Intentionally only re-tween when the target value changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, ms]);
   return shown;
 }
 
@@ -112,7 +124,7 @@ export function DistressMeter({
             Distress
           </p>
           <p className="mt-1 flex items-baseline gap-2">
-            <span className="font-display text-4xl font-semibold tabular-nums text-teal-900 transition-colors duration-200">
+            <span className="meter-value font-display text-4xl font-semibold tabular-nums text-teal-900">
               {displayDistress}
             </span>
             <span className="text-sm text-ink-muted">/ 100</span>
@@ -153,7 +165,7 @@ export function DistressMeter({
         <div>
           <div className="mb-1 flex justify-between text-xs text-ink-muted">
             <span>Trust</span>
-            <span className="flex items-center gap-1.5 tabular-nums font-medium text-ink">
+            <span className="meter-value flex items-center gap-1.5 tabular-nums font-medium text-ink">
               {displayTrust}
               {trustDelta !== 0 && (
                 <span
