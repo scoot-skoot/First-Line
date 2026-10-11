@@ -112,13 +112,30 @@ export function Call() {
     });
   }
 
+  function appendTurns(traineeTurn: TurnView, callerTurn: TurnView) {
+    // Coerce meter fields so a partial API shape never blanks the overlay.
+    const caller: TurnView = {
+      ...callerTurn,
+      text: callerTurn.text ?? "",
+      distress:
+        callerTurn.distress == null || !Number.isFinite(Number(callerTurn.distress))
+          ? null
+          : Math.round(Number(callerTurn.distress)),
+      trust:
+        callerTurn.trust == null || !Number.isFinite(Number(callerTurn.trust))
+          ? null
+          : Math.round(Number(callerTurn.trust)),
+    };
+    setTurns((t) => [...t, { ...traineeTurn, text: traineeTurn.text ?? "" }, caller]);
+  }
+
   async function sendText(value: string) {
     if (!value.trim() || busy || paused || callEnded) return;
     setBusy(true);
     setToast(null);
     try {
       const res = await api.postTextTurn(id, value.trim());
-      setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
+      appendTurns(res.traineeTurn, res.callerTurn);
       setText("");
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
@@ -135,7 +152,7 @@ export function Call() {
     setToast(null);
     try {
       const res = await api.postAudioTurn(id, blob);
-      setTurns((t) => [...t, res.traineeTurn, res.callerTurn]);
+      appendTurns(res.traineeTurn, res.callerTurn);
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
     } catch (e) {

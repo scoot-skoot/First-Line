@@ -47,9 +47,15 @@ function memoryOpening(input: CallerTurnInput): string | null {
   return `Hey... it's me again. I remember: ${snippet}`;
 }
 
-export class MockCaller implements CallerModel {
-  private lineIndex = 0;
+/**
+ * Derive reply index from this session's history so a long-lived MockCaller
+ * singleton cannot end brand-new calls after prior smoke/demo traffic.
+ */
+function replyIndex(input: CallerTurnInput): number {
+  return input.history.filter((t) => t.speaker === "trainee").length;
+}
 
+export class MockCaller implements CallerModel {
   async nextTurn(input: CallerTurnInput): Promise<CallerTurn> {
     if (input.isOpening) {
       const remembered = memoryOpening(input);
@@ -71,41 +77,43 @@ export class MockCaller implements CallerModel {
 
     const lastTrainee = [...input.history].reverse().find((t) => t.speaker === "trainee");
     const text = lastTrainee?.text ?? "";
-    const delta = isValidating(text) ? -10 : 10;
+    const validating = isValidating(text);
+    // Visible meter movement for demos (±12), still within server ±20 clamp.
+    const delta = validating ? -12 : 12;
     const distress = Math.max(0, Math.min(100, input.currentDistress + delta));
+    const n = replyIndex(input);
     const trust = Math.max(
       0,
-      Math.min(100, 30 + (isValidating(text) ? 8 : -5) + input.history.length),
+      Math.min(100, (validating ? 38 : 22) + n * (validating ? 6 : -3)),
     );
 
-    let line = LINES[this.lineIndex % LINES.length]!;
-    this.lineIndex += 1;
+    let line = LINES[(n - 1) % LINES.length]!;
 
     // On Ray call #3, keep referencing a prior promise when not validating.
     if (
       input.memories.length > 0 &&
       input.scenario.callNumber >= 3 &&
-      this.lineIndex === 2
+      n === 2 &&
+      !validating
     ) {
       const mem = input.memories[1] ?? input.memories[0]!;
       line = `You told me ${mem.toLowerCase().replace(/\.$/, "")}. That didn't fix anything.`;
     }
 
     const revealed: string[] = [];
-    if (this.lineIndex === 2 && input.scenario.warningSignCodes.includes("hopelessness")) {
+    if (n === 2 && input.scenario.warningSignCodes.includes("hopelessness")) {
       revealed.push("hopelessness");
     }
-    if (this.lineIndex === 3 && input.scenario.warningSignCodes.includes("withdrawal")) {
+    if (n === 3 && input.scenario.warningSignCodes.includes("withdrawal")) {
       revealed.push("withdrawal");
     }
-    if (
-      this.lineIndex === 4 &&
-      input.scenario.warningSignCodes.includes("perceived_burden")
-    ) {
+    if (n === 4 && input.scenario.warningSignCodes.includes("perceived_burden")) {
       revealed.push("perceived_burden");
     }
 
-    const shouldEnd = this.lineIndex >= 5 || (this.lineIndex >= 4 && distress <= 30);
+    // End only after a real multi-turn practice (≥5 trainee replies), or
+    // after ≥4 replies once distress has clearly settled.
+    const shouldEnd = n >= 5 || (n >= 4 && distress <= 30);
 
     return {
       caller_line: shouldEnd
