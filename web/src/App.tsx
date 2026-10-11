@@ -23,7 +23,7 @@ export default function App() {
                 <Route
                   path="/call/:id"
                   element={
-                    <ErrorBoundary label="practice call">
+                    <ErrorBoundary label="Practice call">
                       <Call />
                     </ErrorBoundary>
                   }

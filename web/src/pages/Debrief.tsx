@@ -39,7 +39,7 @@ export function Debrief() {
           to="/"
           className="text-sm font-semibold text-teal-800 hover:underline"
         >
-          ← Practice calls
+          ← Practice
         </Link>
       </div>
       {loading && (

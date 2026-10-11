@@ -38,7 +38,7 @@ export function BuildCallerPage() {
       <header className="mb-8 animate-fade-up">
         <DistressCurveMark className="h-4 w-14" />
         <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-teal-900 md:text-4xl">
-          Build-a-Caller
+          Build a Caller
         </h1>
         <p className="mt-2 max-w-xl text-ink-muted">
           Describe a practice caller in plain language. We draft a non-graphic

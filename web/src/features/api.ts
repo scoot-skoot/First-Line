@@ -34,7 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return requestOnce<T>(path, init);
 }
 
-/** Feature-owned API helpers (Build-a-Caller + Readiness). */
+/** Feature-owned API helpers (Build a Caller + Readiness). */
 export const featuresApi = {
   buildCaller: (description: string) =>
     request<BuildCallerResponse>("/api/scenarios/build", {

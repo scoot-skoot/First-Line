@@ -1,5 +1,5 @@
 /**
- * Local UI contracts for Build-a-Caller + Readiness.
+ * Local UI contracts for Build a Caller + Readiness.
  * Prefer `@shared` once the features agent's shared/types land on main.
  * Do not edit shared/types from the UI branch.
  */
