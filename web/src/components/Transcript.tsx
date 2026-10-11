@@ -57,7 +57,9 @@ export function Transcript({
                   <span className="text-amber-700">· fallback</span>
                 ) : null}
               </div>
-              <p className="text-[15px] leading-relaxed text-ink">{t.text}</p>
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-ink">
+                {t.text}
+              </p>
             </div>
           </div>
         );

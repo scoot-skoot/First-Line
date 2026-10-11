@@ -87,7 +87,18 @@ export const api = {
     }),
   postAudioTurn: async (id: string, blob: Blob) => {
     const form = new FormData();
-    form.append("audio", blob, "turn.webm");
+    const mime = blob.type || "audio/webm";
+    const ext = mime.includes("mp4")
+      ? "m4a"
+      : mime.includes("ogg")
+        ? "ogg"
+        : mime.includes("wav")
+          ? "wav"
+          : mime.includes("mpeg") || mime.includes("mp3")
+            ? "mp3"
+            : "webm";
+    // Filename + blob type must match so multer/ElevenLabs see playable audio.
+    form.append("audio", blob, `turn.${ext}`);
     return request<{
       traineeTurn: TurnView;
       callerTurn: CallerTurnView;

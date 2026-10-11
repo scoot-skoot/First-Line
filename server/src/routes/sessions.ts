@@ -86,11 +86,16 @@ export function sessionsRouter(container: AppContainer): Router {
         if (parsed.success) text = parsed.data.text;
       }
 
+      const uploaded = req.file;
+      const mimeType =
+        uploaded?.mimetype ||
+        (typeof req.body?.mimeType === "string" ? req.body.mimeType : undefined) ||
+        "audio/webm";
       const result = await container.calls.takeTurn({
         sessionId: req.params.id,
         text,
-        audio: req.file?.buffer,
-        mimeType: req.file?.mimetype,
+        audio: uploaded?.buffer,
+        mimeType,
       });
       res.status(201).json(result);
     } catch (err) {

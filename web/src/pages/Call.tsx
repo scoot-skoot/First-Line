@@ -139,8 +139,16 @@ export function Call() {
       if (res.callerTurn.audioUrl) playAudio(res.callerTurn.seq);
       if (res.callEnded) setCallEnded(true);
     } catch (e) {
-      setToast(`${(e as Error).message} — try typing instead.`);
+      const msg = (e as Error).message || "Speech recognition failed";
+      const sttFail =
+        /speech recognition|stt|invalid_audio|corrupted|audio/i.test(msg) ||
+        (e as { code?: string }).code === "STT_FAILED";
       setMode("text");
+      setToast(
+        sttFail
+          ? "Couldn't hear that clearly — type your reply below and send."
+          : `${msg} — try typing instead.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -273,6 +281,9 @@ export function Call() {
               <PushToTalkButton
                 disabled={busy || paused || callEnded}
                 onClip={sendAudio}
+                onTooShort={() =>
+                  setToast("Hold the mic a half-second longer, then release.")
+                }
               />
             )}
             <Button

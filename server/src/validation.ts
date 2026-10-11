@@ -11,12 +11,13 @@ export const emotionSchema = z.enum([
 ]);
 
 export const callerTurnSchema = z.object({
+  // No max length — never truncate what the caller says for transcript/TTS.
   caller_line: z.string().min(1),
-  emotion: emotionSchema,
-  distress: z.number().int().min(0).max(100),
-  trust: z.number().int().min(0).max(100),
-  revealed_warning_signs: z.array(z.string()),
-  should_end_call: z.boolean(),
+  emotion: emotionSchema.catch("flat"),
+  distress: z.coerce.number().int().min(0).max(100),
+  trust: z.coerce.number().int().min(0).max(100),
+  revealed_warning_signs: z.array(z.string()).catch([]),
+  should_end_call: z.boolean().catch(false),
 });
 
 export const skillSchema = z.enum([
