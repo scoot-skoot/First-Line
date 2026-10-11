@@ -1,5 +1,6 @@
 import pg from "pg";
 import "../../src/config.js";
+import { pgPoolConfig } from "../../src/db/pgConnection.js";
 import { formatError, printResult, timed } from "./_util.js";
 
 async function main(): Promise<boolean> {
@@ -8,10 +9,7 @@ async function main(): Promise<boolean> {
     printResult("db", false, "missing env DATABASE_URL", 0);
     return false;
   }
-  const pool = new pg.Pool({
-    connectionString: url,
-    ssl: url.includes("localhost") ? undefined : { rejectUnauthorized: false },
-  });
+  const pool = new pg.Pool(pgPoolConfig(url));
   try {
     const { value: note, ms } = await timed(async () => {
       await pool.query("SELECT 1");

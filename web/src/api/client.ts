@@ -8,10 +8,11 @@ import type {
   SessionRecord,
   TurnView,
 } from "@shared";
+import { withStartupRetry } from "./retry";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestOnce<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -39,6 +40,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  // Retry GETs so the SPA survives the API coming up a second later.
+  if (method === "GET") {
+    return withStartupRetry(() => requestOnce<T>(path, init));
+  }
+  return requestOnce<T>(path, init);
 }
 
 export const api = {

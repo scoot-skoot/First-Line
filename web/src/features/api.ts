@@ -1,8 +1,9 @@
 import type { BuildCallerResponse, ReadinessReport } from "@shared";
+import { withStartupRetry } from "../api/retry";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestOnce<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -18,9 +19,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(message);
+    const err = new Error(message) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   return (await res.json()) as T;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET") {
+    return withStartupRetry(() => requestOnce<T>(path, init));
+  }
+  return requestOnce<T>(path, init);
 }
 
 /** Feature-owned API helpers (Build-a-Caller + Readiness). */
