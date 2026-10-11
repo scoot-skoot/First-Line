@@ -200,7 +200,7 @@ export function Call() {
             <CallerAvatar name={callerName} size="md" />
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-ink-faint">
-                Live practice call
+                Practice call
               </p>
               <h1 className="font-display text-xl font-semibold text-ink">
                 {callerName}
@@ -310,7 +310,7 @@ export function Call() {
               disabled={ending || busy}
               onClick={() => void endAndDebrief()}
             >
-              {ending ? "Preparing debrief…" : "End call"}
+              {ending ? "Preparing debrief…" : "End call & debrief"}
             </Button>
           </div>
           <div className="flex gap-2">
@@ -377,7 +377,7 @@ export function Call() {
 
         {session && (
           <p className="text-center text-xs text-ink-faint">
-            Session {session.id.slice(0, 8)} · {session.mode} mode
+            Practice call {session.id.slice(0, 8)} · {session.mode}
           </p>
         )}
       </aside>

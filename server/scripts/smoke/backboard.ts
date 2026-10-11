@@ -15,10 +15,10 @@ async function main(): Promise<boolean> {
   try {
     const { value, ms } = await timed(async () => {
       const bb = new BackboardClient({ apiKey: key });
-      const name = `steadyline-smoke-${Date.now()}`;
+      const name = `firstline-smoke-${Date.now()}`;
       const a = await bb.createAssistant({
         name,
-        system_prompt: "Memory store for SteadyLine smoke test.",
+        system_prompt: "Memory store for First Line smoke test.",
       });
       const assistantId =
         (a as { assistantId?: string }).assistantId ??

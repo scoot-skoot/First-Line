@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 import type { Persona, Scenario, TurnRecord } from "../../../shared/types/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const promptCache = new Map<string, string>();
 
 export function loadPrompt(name: "caller.md" | "scorer.md"): string {
-  return readFileSync(join(__dirname, "prompts", name), "utf8");
+  const hit = promptCache.get(name);
+  if (hit) return hit;
+  const text = readFileSync(join(__dirname, "prompts", name), "utf8");
+  promptCache.set(name, text);
+  return text;
 }
 
 export function renderTemplate(
