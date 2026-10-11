@@ -1,5 +1,8 @@
 import express from "express";
 import cors from "cors";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { buildContainer } from "./container.js";
 import { buildCallerRouter } from "./routes/buildCaller.js";
@@ -20,6 +23,26 @@ app.use("/api", readinessRouter(container));
 app.use("/api", scenariosRouter(container));
 app.use("/api", buildCallerRouter(container));
 app.use("/api", sessionsRouter(container));
+
+// Production / Render: serve the Vite build from the same origin as /api.
+// Compiled file lives at server/dist/server/src/index.js → repo root is ../../../..
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const webDist = path.resolve(__dirname, "../../../../web/dist");
+if (fs.existsSync(webDist)) {
+  app.use(express.static(webDist, { index: false, maxAge: "1h" }));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(webDist, "index.html"), (err) => {
+      if (err) next(err);
+    });
+  });
+  console.log(`[static] serving UI from ${webDist}`);
+} else {
+  console.warn(`[static] web/dist not found at ${webDist} (API-only mode)`);
+}
 
 app.use(
   (
