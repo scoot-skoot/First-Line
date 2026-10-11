@@ -18,6 +18,35 @@ import { safeNextTurn } from "./safety.js";
 import { computeOverallScore } from "./scoring.js";
 import { callerTurnView, traineeTurnView } from "./views.js";
 
+type StageTimer = {
+  mark: (stage: string) => void;
+  done: () => Record<string, number>;
+};
+
+function startTimer(): StageTimer {
+  const t0 = Date.now();
+  const marks: Record<string, number> = {};
+  let last = t0;
+  return {
+    mark(stage: string) {
+      const now = Date.now();
+      marks[stage] = now - last;
+      last = now;
+    },
+    done() {
+      marks.total = Date.now() - t0;
+      return marks;
+    },
+  };
+}
+
+function logTiming(label: string, marks: Record<string, number>): void {
+  const parts = Object.entries(marks)
+    .map(([k, v]) => `${k}=${v}ms`)
+    .join(" ");
+  console.info(`[call-timing] ${label} ${parts}`);
+}
+
 export class CallService {
   private consecutiveFallbacks = new Map<string, number>();
   private sessionMemories = new Map<string, CallerRemembersView>();
@@ -40,6 +69,11 @@ export class CallService {
     return this.sessionMemories.get(sessionId) ?? null;
   }
 
+  /** Cached facts for this session — never hit Backboard mid-call. */
+  private memoriesForSession(sessionId: string): string[] {
+    return this.sessionMemories.get(sessionId)?.facts ?? [];
+  }
+
   async startSession(opts: {
     traineeId: string;
     scenarioId: string;
@@ -49,23 +83,30 @@ export class CallService {
     openingTurn: CallerTurnView;
     callerRemembers: CallerRemembersView;
   }> {
+    const timer = startTimer();
     const { scenario, persona } = await this.repo.getScenarioWithPersona(
       opts.scenarioId,
     );
-    const memories = await this.memory.recall(opts.traineeId, persona.id);
-    const callerRemembers: CallerRemembersView = {
-      facts: memories,
-      source: memories.length ? this.memorySource() : "none",
-    };
-    const session = await this.repo.createSession({
+    timer.mark("scenario");
+
+    // Prefetch memory in parallel with session create — hard-capped by CompositeMemory (~1s).
+    const recallPromise = this.memory.recall(opts.traineeId, persona.id);
+    const sessionPromise = this.repo.createSession({
       traineeId: opts.traineeId,
       scenarioId: opts.scenarioId,
       personaId: persona.id,
       mode: opts.mode,
     });
+
+    const [memories, session] = await Promise.all([recallPromise, sessionPromise]);
+    timer.mark("memory+session");
+
+    const callerRemembers: CallerRemembersView = {
+      facts: memories,
+      source: memories.length ? this.memorySource() : "none",
+    };
     this.sessionMemories.set(session.id, callerRemembers);
 
-    const started = Date.now();
     const { turn: raw, safetyFallback } = await safeNextTurn(this.caller, {
       persona,
       scenario,
@@ -74,6 +115,8 @@ export class CallService {
       memories,
       isOpening: true,
     });
+    timer.mark("gemini");
+
     const { turn, clampInfo } = normalizeCallerTurn(raw, {
       previousDistress: scenario.initialDistress,
       isOpening: true,
@@ -96,11 +139,12 @@ export class CallService {
         shouldEndCall: turn.should_end_call,
         callerRemembers,
       },
-      latencyMs: Date.now() - started,
+      latencyMs: null,
     });
-
-    // Warm TTS cache path (audio served on GET)
-    void this.tts;
+    timer.mark("db_write");
+    const startMarks = timer.done();
+    saved.latencyMs = startMarks.total ?? null;
+    logTiming(`startSession ${session.id.slice(0, 8)}`, startMarks);
 
     return { session, openingTurn: callerTurnView(saved), callerRemembers };
   }
@@ -115,13 +159,14 @@ export class CallService {
     callerTurn: CallerTurnView;
     callEnded: boolean;
   }> {
+    const timer = startTimer();
     const detail = await this.repo.getSession(opts.sessionId);
     if (!detail) throw Object.assign(new Error("Session not found"), { status: 404 });
     if (detail.session.status !== "in_progress") {
       throw Object.assign(new Error("Session is not in progress"), { status: 409 });
     }
+    timer.mark("load_session");
 
-    const started = Date.now();
     let traineeText = opts.text?.trim() ?? "";
     if (!traineeText && opts.audio) {
       try {
@@ -129,6 +174,7 @@ export class CallService {
           opts.audio,
           opts.mimeType ?? "audio/webm",
         );
+        timer.mark("stt");
       } catch (err) {
         console.warn("[call] STT failed, need text fallback:", (err as Error).message);
         throw Object.assign(new Error("Speech recognition failed; try text input"), {
@@ -136,30 +182,38 @@ export class CallService {
           code: "STT_FAILED",
         });
       }
+    } else {
+      timer.mark("stt");
     }
     if (!traineeText) {
       throw Object.assign(new Error("text or audio required"), { status: 400 });
     }
 
-    const traineeTurn = await this.repo.appendTurn({
+    // Scenario + trainee DB write in parallel (no Backboard on critical path).
+    const scenarioPromise = this.repo.getScenarioWithPersona(
+      detail.session.scenarioId,
+    );
+    const traineeWritePromise = this.repo.appendTurn({
       sessionId: opts.sessionId,
       speaker: "trainee",
       text: traineeText,
       latencyMs: null,
     });
 
-    const { scenario, persona } = await this.repo.getScenarioWithPersona(
-      detail.session.scenarioId,
-    );
+    const [{ scenario, persona }, traineeTurn] = await Promise.all([
+      scenarioPromise,
+      traineeWritePromise,
+    ]);
+    timer.mark("db_trainee+scenario");
+
     const history = [...detail.turns, traineeTurn];
     const lastCaller = [...detail.turns]
       .reverse()
       .find((t) => t.speaker === "caller");
     const currentDistress = lastCaller?.distress ?? scenario.initialDistress;
-    const memories = await this.memory.recall(
-      detail.session.traineeId,
-      persona.id,
-    );
+    // Prefetched at call start — never await Backboard mid-turn.
+    const memories = this.memoriesForSession(opts.sessionId);
+    timer.mark("memory_cache");
 
     const { turn: raw, safetyFallback } = await safeNextTurn(this.caller, {
       persona,
@@ -169,6 +223,7 @@ export class CallService {
       memories,
       isOpening: false,
     });
+    timer.mark("gemini");
 
     let consecutive = this.consecutiveFallbacks.get(opts.sessionId) ?? 0;
     if (safetyFallback) consecutive += 1;
@@ -204,8 +259,16 @@ export class CallService {
         safetyFallback,
         shouldEndCall: shouldEnd,
       },
-      latencyMs: Date.now() - started,
+      latencyMs: null,
     });
+    timer.mark("db_caller");
+    const turnMarks = timer.done();
+    // Stamp latency after write using measured total.
+    callerSaved.latencyMs = turnMarks.total ?? null;
+    logTiming(`takeTurn ${opts.sessionId.slice(0, 8)}`, turnMarks);
+
+    // Kick TTS warm-up off the critical path (audio fetched via separate GET).
+    void this.tts;
 
     return {
       traineeTurn: traineeTurnView(traineeTurn),
@@ -241,7 +304,7 @@ export class CallService {
     const overall = computeOverallScore(output);
     await this.repo.completeSession(sessionId, output, overall);
 
-    // Persist caller-POV facts for callbacks (local always; Backboard when enabled).
+    // Persist caller-POV facts for callbacks (local await; Backboard fire-and-forget).
     const traineeLines = detail.turns
       .filter((t) => t.speaker === "trainee")
       .map((t) => t.text.trim())
@@ -264,7 +327,13 @@ export class CallService {
       }.`,
       output.summary.slice(0, 180),
     ].filter(Boolean);
-    await this.memory.remember(detail.session.traineeId, persona.id, facts);
+
+    // Don't block debrief on Backboard — CompositeMemory remembers locally then FF primary.
+    void this.memory
+      .remember(detail.session.traineeId, persona.id, facts)
+      .catch((err) =>
+        console.warn("[call] memory.remember failed:", (err as Error).message),
+      );
 
     const updated = await this.repo.getSession(sessionId);
     if (!updated?.debrief) {

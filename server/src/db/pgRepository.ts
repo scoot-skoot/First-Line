@@ -341,17 +341,27 @@ export class PgRepository implements Repository {
     personaId: string,
     patch: { backboardAssistantId?: string; callsCompleted?: number },
   ): Promise<void> {
+    // IMPORTANT: never INSERT NULL into calls_completed — Postgres DEFAULT only
+    // applies when the column is omitted, not when an explicit NULL is bound.
+    const callsCompleted =
+      patch.callsCompleted !== undefined && patch.callsCompleted !== null
+        ? patch.callsCompleted
+        : 0;
     await getPool().query(
       `INSERT INTO caller_relationships (trainee_id, persona_id, backboard_assistant_id, calls_completed)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (trainee_id, persona_id) DO UPDATE SET
-         backboard_assistant_id = COALESCE($3, caller_relationships.backboard_assistant_id),
-         calls_completed = COALESCE($4, caller_relationships.calls_completed)`,
+         backboard_assistant_id = COALESCE(EXCLUDED.backboard_assistant_id, caller_relationships.backboard_assistant_id),
+         calls_completed = CASE
+           WHEN $5::boolean THEN EXCLUDED.calls_completed
+           ELSE caller_relationships.calls_completed
+         END`,
       [
         traineeId,
         personaId,
         patch.backboardAssistantId ?? null,
-        patch.callsCompleted ?? null,
+        callsCompleted,
+        patch.callsCompleted !== undefined && patch.callsCompleted !== null,
       ],
     );
   }

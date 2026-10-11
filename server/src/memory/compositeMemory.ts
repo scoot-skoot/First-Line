@@ -1,5 +1,7 @@
 import type { CallerMemory } from "./types.js";
 
+const DEFAULT_TIMEOUT_MS = 1000;
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -21,6 +23,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 /**
  * Prefer Backboard; on timeout/error fall back to session-history LocalMemory.
  * Tracks which source last succeeded for the "Caller remembers" chip.
+ *
+ * Timeouts stay short (~1s) so Backboard never blocks a live turn.
  */
 export class CompositeMemory implements CallerMemory {
   lastSource: "backboard" | "session_history" | "seed" | "none" = "none";
@@ -28,7 +32,7 @@ export class CompositeMemory implements CallerMemory {
   constructor(
     private primary: CallerMemory | null,
     private fallback: CallerMemory,
-    private timeoutMs = 2500,
+    private timeoutMs = DEFAULT_TIMEOUT_MS,
   ) {}
 
   async recall(traineeId: string, personaId: string): Promise<string[]> {
@@ -53,12 +57,7 @@ export class CompositeMemory implements CallerMemory {
 
     const fallbackFacts = await this.fallback.recall(traineeId, personaId);
     if (fallbackFacts.length > 0) {
-      // Seed facts for Ray demo path are indistinguishable here; mark seed if
-      // primary was absent and we got the known demo length from LocalMemory.
-      this.lastSource = this.primary ? "session_history" : "seed";
-      // Prefer session_history label when MEMORY_PROVIDER=none but facts came
-      // from prior remember() writes; LocalMemory still returns seed for Ray.
-      if (!this.primary) this.lastSource = "session_history";
+      this.lastSource = this.primary ? "session_history" : "session_history";
       return fallbackFacts;
     }
     this.lastSource = "none";
@@ -70,21 +69,20 @@ export class CompositeMemory implements CallerMemory {
     personaId: string,
     facts: string[],
   ): Promise<void> {
-    // Always persist locally so UI/demo works without Backboard.
+    // Local write is fast and required for demo/fallback — await it.
     await this.fallback.remember(traineeId, personaId, facts);
+    // Backboard is fire-and-forget with a hard timeout so endSession returns.
     if (this.primary) {
-      try {
-        await withTimeout(
-          this.primary.remember(traineeId, personaId, facts),
-          this.timeoutMs,
-          "backboard remember",
-        );
-      } catch (err) {
+      void withTimeout(
+        this.primary.remember(traineeId, personaId, facts),
+        this.timeoutMs,
+        "backboard remember",
+      ).catch((err) => {
         console.warn(
           "[memory] Backboard remember failed (local copy kept):",
           (err as Error).message,
         );
-      }
+      });
     }
   }
 }

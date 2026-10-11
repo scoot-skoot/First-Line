@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -26,13 +26,23 @@ if (isPlaceholderDatabaseUrl(url)) {
 
 const pool = new pg.Pool(pgPoolConfig(url));
 
-const schema = readFileSync(join(__dirname, "../../db/schema.sql"), "utf8");
-const seed = readFileSync(join(__dirname, "../../db/seed.sql"), "utf8");
+const dbRoot = join(__dirname, "../../db");
+const schema = readFileSync(join(dbRoot, "schema.sql"), "utf8");
+const seed = readFileSync(join(dbRoot, "seed.sql"), "utf8");
+const migrationsDir = join(dbRoot, "migrations");
+const migrationFiles = readdirSync(migrationsDir)
+  .filter((f) => f.endsWith(".sql"))
+  .sort();
 
 try {
   await pool.query(schema);
   await pool.query(seed);
-  console.log("db:reset OK — schema + seed applied");
+  for (const file of migrationFiles) {
+    const sql = readFileSync(join(migrationsDir, file), "utf8");
+    await pool.query(sql);
+    console.log(`db:reset applied migration ${file}`);
+  }
+  console.log("db:reset OK — schema + seed + migrations applied");
 } catch (err) {
   console.error("FAIL db:reset", err instanceof Error ? err.message : err);
   process.exitCode = 1;
