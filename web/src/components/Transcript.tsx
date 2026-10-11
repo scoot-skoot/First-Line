@@ -22,7 +22,7 @@ export function Transcript({
         return (
           <div
             key={`${t.seq}-${t.speaker}`}
-            className={`animate-fade-up flex max-w-[92%] gap-2.5 ${
+            className={`animate-page-enter flex max-w-[92%] gap-2.5 ${
               isCaller ? "self-start" : "self-end flex-row-reverse"
             }`}
           >
