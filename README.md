@@ -1,14 +1,85 @@
-# SteadyLine
+# First Line
 
-Crisis line volunteer **training simulator** for CodeRED Orion (University of Houston), Oct 10–11, 2026.
+**Hold the line.**
 
-> **Training simulator only. Not a crisis service.** If you or someone you know is struggling, call or text **988** or chat at [988lifeline.org](https://988lifeline.org). In an emergency, call 911.
+Winner, MLH Best Use of ElevenLabs — CodeRed Orion 2026 (UH)
 
-Design: [docs/DESIGN.md](docs/DESIGN.md) · Build spec: [docs/AGENT_BUILD.md](docs/AGENT_BUILD.md)
+[![Live demo](https://img.shields.io/badge/Live_demo-first--line--cvjm.onrender.com-0d4a56?style=flat-square)](https://first-line-cvjm.onrender.com)
+[![React](https://img.shields.io/badge/React-Vite-61DAFB?style=flat-square&logo=react&logoColor=white)](./web)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](./shared)
+[![Node.js](https://img.shields.io/badge/Node.js-22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](./server)
+[![Gemini](https://img.shields.io/badge/Google-Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Voice_+_STT-000000?style=flat-square)](https://elevenlabs.io/)
+[![PostgreSQL](https://img.shields.io/badge/Tiger_Data-Postgres-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.tigerdata.com/)
+[![Render](https://img.shields.io/badge/Deployed_on-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://first-line-cvjm.onrender.com)
 
-**Tracks:** MLH Best Use of Gemini API · MLH Best Use of ElevenLabs · Best Use of Backboard · (optional) Best Use of Tiger Data
+**Live demo:** [https://first-line-cvjm.onrender.com](https://first-line-cvjm.onrender.com)
 
-## Setup (works with no API keys)
+Crisis line volunteers often learn by shadowing and scarce roleplay. **First Line** gives them on-demand practice with realistic AI voice callers who react in the moment, remember past sessions, and surface a scored debrief — so trainees can build skill before they ever pick up a real line.
+
+> **Training tool only — not a crisis service.** If you are in crisis, call or text **988** in the US (or visit [988lifeline.org](https://988lifeline.org)). In an emergency, call 911.
+
+## Features
+
+- **Callers who remember you** — per trainee–caller memory via [Backboard](https://www.backboard.ai/), so callbacks feel continuous
+- **ElevenLabs expressive voices + STT** — spoken practice with push-to-talk transcription
+- **Live distress / trust meter** — watch how each response moves the caller (0–100)
+- **Gemini caller + scored debrief** — persona-driven turns and skill-focused feedback after the call
+- **Readiness report** — practice history persisted in Tiger Data Postgres
+- **Build-a-Caller** — create custom practice personas for targeted drills
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Client
+    UI["React + Vite web"]
+  end
+  subgraph Render["Render — single Node service"]
+    API["Express API"]
+  end
+  subgraph Providers
+    Gemini["Gemini<br/>caller + scorer"]
+    Eleven["ElevenLabs<br/>TTS + STT"]
+    Backboard["Backboard<br/>memory"]
+    Tiger["Tiger Data<br/>Postgres"]
+  end
+  UI -->|"REST /api"| API
+  API --> Gemini
+  API --> Eleven
+  API --> Backboard
+  API --> Tiger
+```
+
+| Layer | Role |
+|---|---|
+| `web/` | React + Vite + TypeScript UI |
+| `server/` | Express routes, orchestration, provider adapters |
+| `shared/types` | Shared JSON contracts |
+| `db/` | Schema, seed, migrations |
+
+## Tech stack
+
+| Area | Choice |
+|---|---|
+| Frontend | React, Vite, TypeScript, Tailwind |
+| Backend | Node.js 22, Express, TypeScript |
+| AI caller / scoring | Google Gemini |
+| Voice | ElevenLabs TTS + STT |
+| Memory | Backboard |
+| Data | Tiger Data (Postgres / Timescale-compatible) |
+| Hosting | Render (API + static UI, one service) |
+
+## Key engineering decisions
+
+- **Swappable provider interfaces + mocks** — `AI_PROVIDER`, `VOICE_PROVIDER`, `MEMORY_PROVIDER`, and `REPO_PROVIDER` swap between mock and live backends so the full call flow works with zero API keys
+- **Safe fallback on AI failure** — model errors become in-character safety responses; no raw stack traces in the trainee UI
+- **Per trainee–caller memory scoping** — Backboard memory is scoped so one volunteer's history with Maya does not leak into another trainee's session
+- **Push-to-talk over full duplex** — reliable PTT for hackathon demos; full-duplex interruption prototypes live on separate branches
+
+## Local setup
+
+Works with **no API keys** (mock defaults).
 
 ```bash
 git clone https://github.com/scoot-skoot/codered-orion.git && cd codered-orion
@@ -21,55 +92,35 @@ npm run dev
 - Web: http://localhost:5173  
 - API: http://localhost:3001/api/health  
 
-Defaults: `AI_PROVIDER=mock`, `VOICE_PROVIDER=mock`, `MEMORY_PROVIDER=none`, `REPO_PROVIDER=memory`. A full practice call (queue → conversation → debrief) works in the browser with zero keys.
-
-## Demo script (mock mode)
-
-1. Open the dispatch board — three scenario cards: **Maya** (Tier 1), **Ray** (Tier 2), **Dana** (Tier 3).
-2. Click **Text practice** (or Take call) on Ray.
-3. Exchange a few turns. Use validating language (“sounds like…”, open questions) and watch the distress meter move.
-4. Click **End & debrief** for the scorecard (skills, warning signs, distress curve).
-
-## Switch each service to real
-
-| Env var | Mock / off | Real | Also set |
-|---|---|---|---|
-| `AI_PROVIDER` | `mock` (default) | `gemini` | `GEMINI_API_KEY` (optional: `GEMINI_MODEL`, `GEMINI_SCORER_MODEL`) |
-| `VOICE_PROVIDER` | `mock` (default) | `elevenlabs` | `ELEVENLABS_API_KEY`, `ELEVENLABS_DEFAULT_VOICE_ID=EXAVITQu4vr4xnSDxMaL` |
-| `MEMORY_PROVIDER` | `none` (default) | `backboard` | `BACKBOARD_API_KEY` |
-| `REPO_PROVIDER` | `memory` (default) | `postgres` | `DATABASE_URL`, then `npm run db:reset` |
-
-All keys are **server-side only** (`server/.env`). The web app only needs `VITE_API_URL`.
-
-## Scripts
+Defaults: `AI_PROVIDER=mock`, `VOICE_PROVIDER=mock`, `MEMORY_PROVIDER=none`, `REPO_PROVIDER=memory`.
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server (:3001) + web (:5173) |
-| `npm run smoke` | Five API smoke tests (OK/FAIL; missing key → FAIL naming the var) |
+| `npm run smoke` | API smoke tests |
 | `npm run db:reset` | Apply `db/schema.sql` + `db/seed.sql` |
-| `npm run build` | Server `tsc` + Vite `web/dist` (Render uses this) |
-| `npm start` | Serve API + `web/dist` on `PORT` (default 3001) |
+| `npm run build` | Server `tsc` + Vite `web/dist` |
+| `npm start` | Serve API + `web/dist` on `PORT` |
 | `npm run typecheck` | Server `tsc` + web build |
-| `npm run test` | Distress clamp unit tests |
+| `npm run test` | Unit tests |
 
-## Deploy (Render)
+Flip providers to real by setting keys in `server/.env` (see `server/.env.example`). Deploy notes: [docs/DEPLOY.md](docs/DEPLOY.md).
 
-Single web service — see **[docs/DEPLOY.md](docs/DEPLOY.md)**. Blueprint: [`render.yaml`](render.yaml) (`npm run build` → `npm start`, health `/api/health`).
+## Team
 
-## Layout
+- **[Teammate]**
+- **David Ajao** ([@scoot-skoot](https://github.com/scoot-skoot))
 
-- `web/` — React + Vite + TS UI (talks only to our REST API)
-- `server/src/routes` — thin HTTP · `services` orchestration · `ai` Gemini · `voice` ElevenLabs · `memory` Backboard · `db` Postgres
-- `shared/types` — JSON contracts
-- `db/` — schema and seed SQL
-- `server/scripts/smoke/` — API smoke tests
+Built at **CodeRed Orion 2026** (University of Houston).
 
-## Safety
+## Responsible use
 
-- Persistent 988 banner on every page
-- “Training simulator only” labeling
-- Non-graphic caller prompts and seed content
-- Model failure → in-character safety fallback (no raw errors in the UI)
+First Line is a **training simulator for volunteers**, not a substitute for professional crisis services, clinical supervision, or emergency response. Content is intentionally non-graphic. Persistent UI labeling and a 988 banner reinforce that boundary.
 
-Never commit `.env` files or API keys.
+If you or someone you know is in crisis, **call or text 988** in the US.
+
+## Docs
+
+- [Design notes](docs/DESIGN.md)
+- [Build spec](docs/AGENT_BUILD.md)
+- [Deploy (Render)](docs/DEPLOY.md)

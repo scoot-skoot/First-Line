@@ -1,4 +1,4 @@
-# AGENT_BUILD.md: SteadyLine build spec for a coding agent
+# AGENT_BUILD.md: First Line build spec for a coding agent
 
 > **Training simulator only. Not a crisis service.** If you or someone you know is struggling, call or text **988** or chat at [988lifeline.org](https://988lifeline.org). In an emergency, call 911.
 
@@ -21,7 +21,7 @@ For each later milestone: *"Continue with M\<n\> from docs/AGENT_BUILD.md on bra
 
 ## 1. Goal and context
 
-The team is building **SteadyLine** at CodeRED Orion (Oct 10–11, 2026), a one-day hackathon. Trainee crisis line volunteers practice with a simulated caller: **Gemini** plays the caller from a scenario persona, **ElevenLabs** voices it and transcribes the trainee, and after the call Gemini scores the trainee's skills. The caller has a **live distress number (0–100)** that rises or falls with each response and is shown as a meter. Sessions are saved in **Postgres**.
+The team is building **First Line** at CodeRED Orion (Oct 10–11, 2026), a one-day hackathon. Trainee crisis line volunteers practice with a simulated caller: **Gemini** plays the caller from a scenario persona, **ElevenLabs** voices it and transcribes the trainee, and after the call Gemini scores the trainee's skills. The caller has a **live distress number (0–100)** that rises or falls with each response and is shown as a meter. Sessions are saved in **Postgres**.
 
 Target prize tracks: Gemini API, ElevenLabs, Backboard (sponsor track; see E1), and optionally Tiger Data (Postgres/Timescale).
 
@@ -439,9 +439,9 @@ Build `server/scripts/smoke/{gemini,tts,stt,backboard,db}.ts` and `all.ts`, plus
 | Test | What it does | OK when |
 |---|---|---|
 | `gemini` | One caller-turn call using the §4.2 JSON Schema and a tiny test persona | Response parses and has a `caller_line` string and an integer `distress` 0–100 |
-| `tts` | Streams "This is a SteadyLine voice test." with `ELEVENLABS_DEFAULT_VOICE_ID` and the default TTS model; writes `/tmp/steadyline-smoke.mp3` | More than 1 KB of audio received |
+| `tts` | Streams "This is a First Line voice test." with `ELEVENLABS_DEFAULT_VOICE_ID` and the default TTS model; writes `/tmp/steadyline-smoke.mp3` (filename kept for script compatibility) | More than 1 KB of audio received |
 | `stt` | Generates TTS audio of "testing one two three", then transcribes it with Scribe | Transcript contains "testing" (case-insensitive). If TTS fails, report `FAIL (tts dependency)` |
-| `backboard` | Creates assistant `steadyline-smoke-<timestamp>`, adds one memory, searches for it (retries for up to ~10 s because memory writes can be async), then **deletes the assistant** | Create + add + delete succeed. Print `[OK] (search: found)` or `[OK] (search: pending)` |
+| `backboard` | Creates assistant `steadyline-smoke-<timestamp>` (prefix kept for script compatibility), adds one memory, searches for it (retries for up to ~10 s because memory writes can be async), then **deletes the assistant** | Create + add + delete succeed. Print `[OK] (search: found)` or `[OK] (search: pending)` |
 | `db` | Connects with `DATABASE_URL`, runs `SELECT 1`, and reports whether the `sessions` table exists yet | `SELECT 1` succeeds (missing tables are just a note before M1) |
 
 **Acceptance:** `npm run smoke` from the repo root prints five lines with valid keys and exits 0. With `GEMINI_API_KEY` unset, the gemini line says `FAIL missing env GEMINI_API_KEY` and the exit code is 1. No secret appears in the output. `server/.env.example` lists the new vars from §6. Committed on `feat/m0-smoke`.

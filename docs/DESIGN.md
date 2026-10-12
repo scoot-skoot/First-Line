@@ -1,4 +1,4 @@
-# SteadyLine: Crisis Line Volunteer Training Simulator
+# First Line: Crisis Line Volunteer Training Simulator
 
 > **Training simulator only. Not a crisis service.**
 > If you or someone you know is struggling or in crisis, **call or text 988** or chat at [988lifeline.org](https://988lifeline.org) (US). In an emergency, call 911.
@@ -6,7 +6,7 @@
 **Event:** CodeRED Orion, University of Houston · Sat Oct 10 – Sun Oct 11, 2026
 **Team:** David Ajao (full-stack / backend / DB), [Freshman] (frontend UI / content / pitch), [DS MS student] (AI / scoring / memory / analytics)
 **Target tracks:** MLH Best Use of Gemini API · MLH Best Use of ElevenLabs · Best Use of Backboard · *(optional)* Best Use of Tiger Data
-**Status:** Design doc v1, written at kickoff (~2 PM CT Saturday). "SteadyLine" is a working name; rename freely.
+**Status:** Design doc v1, written at kickoff (~2 PM CT Saturday). Product name: **First Line** (working name during kickoff was SteadyLine).
 
 ## Differentiators (decided)
 
@@ -44,7 +44,7 @@
 
 ## 1. Pitch and problem
 
-**One-liner:** SteadyLine lets new crisis line volunteers practice with realistic, voiced simulated callers, including callers who call back and remember them, and then gives skill-focused feedback grounded in published crisis-line training concepts.
+**One-liner:** First Line lets new crisis line volunteers practice with realistic, voiced simulated callers, including callers who call back and remember them, and then gives skill-focused feedback grounded in published crisis-line training concepts.
 
 **Problem**
 
@@ -72,7 +72,7 @@
 
 | Time | Who | What happens on screen | What we say |
 |---|---|---|---|
-| 0:00–0:20 | Freshman (pitch) | Title slide → Dispatch Board | "About 3 in 4 crisis call centers report staffing shortages. New volunteers learn by shadowing and occasional roleplay. SteadyLine gives them on-demand practice with realistic callers." Point out the 988 banner and the "training only" label. |
+| 0:00–0:20 | Freshman (pitch) | Title slide → Dispatch Board | "About 3 in 4 crisis call centers report staffing shortages. New volunteers learn by shadowing and occasional roleplay. First Line gives them on-demand practice with realistic callers." Point out the 988 banner and the "training only" label. |
 | 0:20–1:20 | David (driving) | Pick **Ray, Tier 2, Call 1** → caller voice plays → 3–4 push-to-talk exchanges | "Gemini plays the caller from a scenario persona. ElevenLabs gives Ray his voice. Our speech-to-text captures what I say." Show a warning-sign cue surfacing ("I don't really see the point anymore"). Ask directly about suicide, the way 988 policy expects. |
 | 1:20–1:55 | DS student | End call → **Debrief** | "Gemini returns structured JSON scores grounded in the 988 Safety Assessment Model: active listening, empathy, de-escalation, risk assessment, warning signs. Every score cites a line from the transcript." Show one *missed* sign. |
 | 1:55–2:30 | David | Queue shows **Ray, Callback #2** → start → Ray: "Hey… it's Ray again. I did what you said and called my sister." | "Backboard gives Ray persistent memory. He remembers the last call with this trainee, so volunteers can practice the familiar-caller situations real lines see." |
