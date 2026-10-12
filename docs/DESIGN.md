@@ -65,7 +65,7 @@
 
 ## 3. MVP scope vs. stretch goals
 
-Rule: **if it isn't in the demo script, it isn't MVP.**
+Rule: **if it isn't needed for the core training loop, it isn't MVP.**
 
 | Area | MVP (must ship for judging) | Stretch (only after Checkpoint 3) |
 |---|---|---|
