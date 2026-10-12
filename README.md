@@ -108,7 +108,7 @@ Flip providers to real by setting keys in `server/.env` (see `server/.env.exampl
 
 ## Team
 
-- **[Teammate]**
+- **Sragvi Gireesh** (she/her) — [LinkedIn](https://www.linkedin.com/in/sragvig/)
 - **David Ajao** ([@scoot-skoot](https://github.com/scoot-skoot))
 
 Built at **CodeRed Orion 2026** (University of Houston).
@@ -121,6 +121,5 @@ If you or someone you know is in crisis, **call or text 988** in the US.
 
 ## Docs
 
-- [Design notes](docs/DESIGN.md)
-- [Build spec](docs/AGENT_BUILD.md)
+- [Design / architecture](docs/DESIGN.md)
 - [Deploy (Render)](docs/DEPLOY.md)

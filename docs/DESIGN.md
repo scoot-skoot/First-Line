@@ -4,13 +4,10 @@
 > If you or someone you know is struggling or in crisis, **call or text 988** or chat at [988lifeline.org](https://988lifeline.org) (US). In an emergency, call 911.
 
 **Event:** CodeRED Orion, University of Houston · Sat Oct 10 – Sun Oct 11, 2026
-**Team:** David Ajao (full-stack / backend / DB), [Freshman] (frontend UI / content / pitch), [DS MS student] (AI / scoring / memory / analytics)
-**Target tracks:** MLH Best Use of Gemini API · MLH Best Use of ElevenLabs · Best Use of Backboard · *(optional)* Best Use of Tiger Data
-**Status:** Design doc v1, written at kickoff (~2 PM CT Saturday). Product name: **First Line** (working name during kickoff was SteadyLine).
+**Team:** Sragvi Gireesh, David Ajao ([@scoot-skoot](https://github.com/scoot-skoot))
+**Status:** Architecture / design notes for First Line (hackathon planning and pitch material removed).
 
 ## Differentiators (decided)
-
-*Decided Saturday afternoon (Oct 10). The build spec for the coding agent, with exact contracts and milestones, is [AGENT_BUILD.md](AGENT_BUILD.md); it wins over this doc wherever they differ.*
 
 1. **Live distress meter (primary, MVP).** The caller has a numeric emotional state: **distress 0–100** (plus trust 0–100). Gemini returns the new state in its structured JSON on every turn (`caller_line`, `emotion`, `distress`, `trust`, `revealed_warning_signs`, `should_end_call`). The server clamps it (±20 per turn) and persists it on each `turns` row, and the call screen shows a live meter with a sparkline. The debrief graphs the distress curve. **Extension E2:** the ElevenLabs voice delivery changes with distress (voice settings such as stability/style/speed, plus audio tags on models that support them).
 2. **Callers who remember (Extension E1).** Backboard memory per (trainee, caller) pair, so a returning caller references earlier calls. A Backboard smoke test ships in M0, and memory sits behind a `CallerMemory` interface with a no-op default so it plugs in cleanly.
@@ -18,14 +15,14 @@
 
 **MVP (in build order):** text call loop → push-to-talk voice (ElevenLabs STT + TTS) → distress number + basic meter → post-call scoring/debrief, with every session saved to Postgres. **Extensions, in priority order:** E1 Backboard callback memory, E2 distress-driven voice, E3 gamification/leaderboard, E4 replay. Anything else in this doc (achievements, tiers/unlocks, full-duplex voice, Tiger Data) is cut unless the MVP and extensions are done.
 
-**Code structure:** clear module boundaries with owners. `/web` is UI only and talks only to our REST API. `/server/src/routes` is thin HTTP, `services` handles call orchestration, `ai` holds the Gemini caller + scorer, `voice` the ElevenLabs adapter, `memory` the Backboard adapter (no-op default), and `db` the schema, repository, and hand-written queries. `/shared/types` is the one source of truth for JSON contracts. Every adapter has a mock so the three of us can work in parallel. See AGENT_BUILD.md §2 and §9.
+**Code structure:** clear module boundaries with owners. `/web` is UI only and talks only to our REST API. `/server/src/routes` is thin HTTP, `services` handles call orchestration, `ai` holds the Gemini caller + scorer, `voice` the ElevenLabs adapter, `memory` the Backboard adapter (no-op default), and `db` the schema, repository, and hand-written queries. `/shared/types` is the one source of truth for JSON contracts. Every adapter has a mock so the three of us can work in parallel.
 
 ---
 
 ## Table of contents
 
-1. [Pitch and problem](#1-pitch-and-problem)
-2. [Core user flow and 3-minute demo script](#2-core-user-flow-and-3-minute-demo-script)
+1. [Problem](#1-problem)
+2. [Core user flow](#2-core-user-flow)
 3. [MVP scope vs. stretch goals](#3-mvp-scope-vs-stretch-goals)
 4. [Architecture](#4-architecture)
 5. [Tech stack](#5-tech-stack)
@@ -35,14 +32,12 @@
 9. [Backboard memory design (recurring callers)](#9-backboard-memory-design-recurring-callers)
 10. [Gamification design](#10-gamification-design)
 11. [Ethics and safety](#11-ethics-and-safety)
-12. [Roles, timeline, and Git workflow](#12-roles-timeline-and-git-workflow)
-13. [Risks and fallbacks](#13-risks-and-fallbacks)
-14. [Appendix A: Interview talking points (David)](#appendix-a-interview-talking-points-david)
-15. [Appendix B: Sources and docs](#appendix-b-sources-and-docs)
+12. [Risks and fallbacks](#12-risks-and-fallbacks)
+13. [Appendix: Sources and docs](#appendix-sources-and-docs)
 
 ---
 
-## 1. Pitch and problem
+## 1. Problem
 
 **One-liner:** First Line lets new crisis line volunteers practice with realistic, voiced simulated callers, including callers who call back and remember them, and then gives skill-focused feedback grounded in published crisis-line training concepts.
 
@@ -56,7 +51,7 @@
 
 ---
 
-## 2. Core user flow and 3-minute demo script
+## 2. Core user flow
 
 ### Core user flow
 
@@ -67,21 +62,6 @@
 5. The trainee ends the call, or the caller wraps up naturally.
 6. **Debrief (about 5–10 s):** Gemini scores five skills (0–4 each) with quoted evidence from the transcript, lists warning signs **caught vs. missed** (with the turn where each surfaced), and gives 2–3 concrete "try this next time" suggestions.
 7. **Progression:** streaks, badges, and tier unlocks update, and the progress chart adds a point. If the caller is recurring, a **callback** appears in the queue later. The persona remembers what was said (Backboard).
-
-### 3-minute demo script
-
-| Time | Who | What happens on screen | What we say |
-|---|---|---|---|
-| 0:00–0:20 | Freshman (pitch) | Title slide → Dispatch Board | "About 3 in 4 crisis call centers report staffing shortages. New volunteers learn by shadowing and occasional roleplay. First Line gives them on-demand practice with realistic callers." Point out the 988 banner and the "training only" label. |
-| 0:20–1:20 | David (driving) | Pick **Ray, Tier 2, Call 1** → caller voice plays → 3–4 push-to-talk exchanges | "Gemini plays the caller from a scenario persona. ElevenLabs gives Ray his voice. Our speech-to-text captures what I say." Show a warning-sign cue surfacing ("I don't really see the point anymore"). Ask directly about suicide, the way 988 policy expects. |
-| 1:20–1:55 | DS student | End call → **Debrief** | "Gemini returns structured JSON scores grounded in the 988 Safety Assessment Model: active listening, empathy, de-escalation, risk assessment, warning signs. Every score cites a line from the transcript." Show one *missed* sign. |
-| 1:55–2:30 | David | Queue shows **Ray, Callback #2** → start → Ray: "Hey… it's Ray again. I did what you said and called my sister." | "Backboard gives Ray persistent memory. He remembers the last call with this trainee, so volunteers can practice the familiar-caller situations real lines see." |
-| 2:30–2:50 | Freshman | Progress chart, streak badge, tier unlock | "Progression is skill-based: streaks for catching warning signs, harder callers unlock as you improve. No points for 'saving' anyone. We score skills, not outcomes." (*Tiger Data line if adopted:* "Session history lives in Postgres/TimescaleDB.") |
-| 2:50–3:00 | All | Ethics slide | "Training simulator, not crisis support. 988 is always one click away. Scenarios follow safe-messaging guidance: realistic, never graphic." |
-
-**Backup:** a pre-recorded 90-second screen capture of the same flow, kept on two laptops and in the repo release assets (see §13).
-
----
 
 ## 3. MVP scope vs. stretch goals
 
@@ -199,7 +179,7 @@ The latency target is **under about 3 s from the trainee releasing the button to
 |---|---|---|---|
 | **Node + TypeScript + Express** | JS SDKs exist for Gemini (`@google/genai`), ElevenLabs, and Backboard (`backboard-sdk` on npm). Streaming audio proxying is natural. **One language across frontend and backend** (shared types). Cursor scaffolds it fast. David has used Node. | Less of an "enterprise" story than Java; the DS student may prefer Python | ✅ **Recommended** |
 | FastAPI (Python) | DS student's home turf; Pydantic models map directly to Gemini structured output; David knows Python/Django | Two languages in the repo; David owns the spine and is more productive in TS/JS next to the React frontend | Good alternative. Pick it **only** if the team agrees in the first 15 minutes that the DS student will write most of the backend |
-| Spring Boot (Java) | Matches the IBM / Adobe AEM interview angle (AEM is Java-based); strong typing, layered architecture | Slowest to scaffold; streaming and vendor SDK ergonomics are weaker; nobody on the team is fluent; high risk for a one-day build | ❌ Not today. David can **explain** how he'd port it (Appendix A) |
+| Spring Boot (Java) | Strong typing and layered architecture; familiar enterprise stack | Slowest to scaffold; streaming and vendor SDK ergonomics are weaker; nobody on the team is fluent; high risk for a one-day build | ❌ Not chosen for this build |
 
 **Reasoning, written down:** the hardest part of this project is the real-time audio and AI glue, not CRUD. The vendors' JS SDKs and docs examples cover that glue directly, and a single TypeScript codebase means the freshman, David, and Cursor all read the same language. The DS student keeps prompts and schemas in plain `.md` / `.json` files under `server/src/ai/`, so prompt work doesn't need deep TS knowledge, and they can prototype prompts in a Python notebook or AI Studio first.
 
@@ -653,7 +633,7 @@ Base path `/api`. JSON everywhere except audio. MVP "auth" is an `X-Trainee-Id` 
 | GET | `/api/resources/crisis` | Static 988 / emergency info rendered in the banner | Freshman |
 | POST | `/v1/chat/completions` | *(stretch)* OpenAI-compatible SSE endpoint for an ElevenLabs Agents Custom LLM | DS |
 
-**Conventions:** plural nouns; sub-resources for ownership (`/sessions/:id/turns`); `201` + body on create; `409` if a turn is posted to a completed session; `422` for Zod validation errors with a consistent `{error: {code, message, details}}` shape. Scoring is **synchronous** in the MVP (5–10 s, behind a spinner); see Appendix A for the async tradeoff.
+**Conventions:** plural nouns; sub-resources for ownership (`/sessions/:id/turns`); `201` + body on create; `409` if a turn is posted to a completed session; `422` for Zod validation errors with a consistent `{error: {code, message, details}}` shape. Scoring is **synchronous** in the MVP (5–10 s, behind a spinner); an async job queue is a later tradeoff if latency becomes an issue.
 
 **Example: `POST /api/sessions/:id/turns` response**
 
@@ -939,100 +919,7 @@ sequenceDiagram
 
 We do **not** claim endorsement by 988, SAMHSA, or any crisis center. Our rubric is *inspired by* these public materials and simplified for a hackathon prototype.
 
-### 11.3 Pitch guidance
-
-- Lead with the volunteers and the staffing gap, not with dramatic caller audio.
-- Demo a Tier 2 caller (hopelessness, isolation). **Do not** demo the highest-risk scenario on stage.
-- Say "training simulator" in the first 20 seconds, and end on the 988 slide.
-- No jokes about the subject; keep the tone warm and matter-of-fact.
-- If asked "Could this replace trainers?", answer: "No. It gives volunteers more reps between supervised roleplays, so trainers' time goes further."
-
----
-
-## 12. Roles, timeline, and Git workflow
-
-### 12.1 Roles and responsibilities
-
-| | **David** (full-stack spine) | **Freshman** (UI, content, pitch) | **DS MS student** (AI side) |
-|---|---|---|---|
-| Owns | Express API, Postgres schema + migrations + seed, all SQL queries, session/turn orchestration, audio proxy, wiring the frontend to the API, env/config, merges to `main` | Dispatch Board, call screen, and debrief UI components (mock data first); persona/scenario JSON content (4–6); 988 banner and labels; UI copy; pitch deck; demo video | Caller persona prompt + per-turn schema, scoring prompt + schema, warning-sign logic, Backboard adapter + memory summaries, scorer regression set, analytics insights for the pitch |
-| Key deliverables | `001_init.sql`, `seed/`, `queries/*.sql`, the routes in §7, the `api/` client in `web/` | `QueueCard`, `CallScreen`, `TranscriptPanel`, `DebriefCard`, `SkillBars`, `ProgressChart`, `content/personas/*.json`, deck | `ai/caller.ts`, `ai/scorer.ts`, `prompts/*.md`, `schemas/*.json`, `memory/backboard.ts`, 6 test transcripts |
-| Design decisions to defend | REST shape, schema (long-format scores), sync vs. async scoring, raw SQL vs. ORM, Node vs. Spring | Visual hierarchy, respectful copy, scenario realism vs. safety | Rubric anchors, structured output, memory isolation, scorer reliability |
-| Pairs with | DS on `/turns` + `/end`; freshman on API client hooks | David for wiring; DS for content review | David on the call orchestrator |
-
-**Guidance for the freshman (a learnable path):**
-1. Start with **static components fed by a `mockData.ts`** file that matches the API response shapes in §7. No backend needed for the first 3 hours.
-2. Use Tailwind utility classes and copy patterns from one component to the next. Ask Cursor things like "make this card match QueueCard's style."
-3. Persona content template (`content/personas/ray.json`):
-
-```json
-{
-  "slug": "ray-callback",
-  "name": "Ray",
-  "age": 46,
-  "voice": { "elevenlabs_voice_id": "TBD", "notes": "low, tired, pauses" },
-  "backstory": "Warehouse supervisor laid off 3 weeks ago. Divorced, one adult daughter. Has been staying in.",
-  "speaking_style": "short sentences, sighs, deflects with dry humor",
-  "baseline_emotion": "flat",
-  "is_recurring": true,
-  "content_notes": ["job loss", "hopelessness", "suicidal thoughts (non-graphic)"],
-  "scenarios": [
-    {
-      "call_number": 1,
-      "difficulty_tier": 2,
-      "title": "Can't sleep, can't stop thinking",
-      "situation_brief": "A man calls late at night saying he can't sleep.",
-      "hidden_state": "Feels like a burden to his daughter. Has had passing thoughts of not wanting to wake up.",
-      "expected_risk_level": "moderate",
-      "warning_signs": [
-        { "code": "hopelessness", "cue_hint": "Says things won't get better / no point trying" },
-        { "code": "perceived_burden", "cue_hint": "Says his daughter would be better off not dealing with him" },
-        { "code": "withdrawal", "cue_hint": "Hasn't left the apartment or answered calls in a week" }
-      ]
-    }
-  ]
-}
-```
-
-4. Own the **deck** (6 slides max): Problem → Demo → How it works (architecture) → Safety & ethics → Tracks we used → Team. Then record the backup demo.
-
-### 12.2 Hour-by-hour timeline (all times CT)
-
-From the [official schedule](https://orion.uhcode.red/): hacking began at **1:00 PM Saturday**; MLH's "Intro to Google AI Studio" is at **5:00 PM**; dinner is **7–8 PM**; the schedule lists "SCS Closed" at **12:00 AM** (find out whether the hacking space stays open overnight). **Assumption:** submissions are due around **9:00 AM Sunday**, with judging Sunday morning. **Confirm the Oct 11 schedule and the Devpost deadline as soon as possible.**
-
-| Time | David | Freshman | DS student | Checkpoint |
-|---|---|---|---|---|
-| **Sat 2:00–2:30** | Create repo, monorepo skeleton, `.env.example`, branch protection | Join repo, run `web/` locally | Get API keys (Gemini via AI Studio, ElevenLabs, Backboard) | **Kickoff:** confirm the stack (Node vs. FastAPI, decided within 15 min); freeze §7 response shapes and the persona JSON format |
-| 2:30–4:00 | Express + TS scaffold (Cursor), `001_init.sql`, provision Postgres, seed warning signs | Layout shell, Dispatch Board + QueueCard with mock data | Caller prompt v1 in AI Studio or a script; text-only conversation with "Ray" | |
-| 4:00–5:00 | `POST /sessions`, `POST /turns` (text mode), turns persisted | CallScreen + TranscriptPanel (mock) | Caller structured output (`cues_revealed`), plugged into `ai/caller.ts` | |
-| 5:00–6:00 | ElevenLabs TTS streaming proxy endpoint | Write 2 personas (JSON); DS reviews | Scoring prompt + schema v1; optional AI Studio workshop (5 PM) | |
-| **6:00 PM** | | | | **CP1: text call end-to-end** (UI → API → Gemini → DB). PRs merged to `main`; tag `v0.1`. |
-| 6:00–7:00 | STT endpoint (Scribe) + push-to-talk upload | MediaRecorder push-to-talk button + audio playback | Scorer → `POST /end`; Zod validation | |
-| 7:00–8:00 | *Dinner (eat together; 10-minute sync on blockers)* | | | |
-| 8:00–9:00 | Debrief writes (one transaction), `GET /debrief` | DebriefCard + SkillBars wired to the API | 6-transcript scorer regression check | |
-| **9:00 PM** | | | | **CP2: voice call + debrief end-to-end** for one scenario. Measure latency. Tag `v0.2`. |
-| 9:00–10:30 | Q2/Q3 queries + `/progress`, `/warning-signs/missed`; achievements logic | ProgressChart (Recharts), badges UI, 988 banner | Backboard adapter: per-pair assistant, search at start, add facts at end | |
-| 10:30–12:00 | `/queue` with callbacks + unlocks; Q4 + streak query | Write personas 3–5; content notes; copy pass | Tune Ray's 3-call arc; memory summary prompt | |
-| **12:00 AM** | | | | **CP3: callback demo works** (call 2 references call 1). Tag `v0.3`. **Feature freeze** from here: bugs and polish only. |
-| 12:00–1:30 | Seed demo history (2 weeks of clearly labeled sample sessions for the demo trainee); fix bugs | Polish UI; deck draft | Tune voice/emotion mapping; fallback model switch | |
-| 1:30–2:30 | Verify the text-mode fallback toggle; README run steps | Record the **backup demo video** | *(Optional)* Tiger Data hypertable + continuous aggregate if on Tiger Cloud | **CP4:** backup video saved; `main` tagged `demo-v1` |
-| 2:30–7:00 | *Sleep in shifts (at least about 4 hours each).* | | | |
-| 7:00–8:15 | Final bug fixes, merged to `main` via PR only | Final deck; Devpost write-up (tracks, screenshots) | Pre-run Ray calls 1 and 2 for the demo trainee; verify memories | |
-| 8:15–9:00 | **Rehearse the 3-minute demo 3 times** with a timer; submit on Devpost (make sure every target prize track is selected) | | | **Submit** (assumed ~9 AM; verify) |
-| **Sun AM** | Judging (assumed): laptop charged, demo trainee selected, backup video open in a tab, hotspot ready | | | |
-
-### 12.3 Git workflow
-
-- **Branches:** `main` is always demo-able. Feature branches are `feat/<area>-<thing>` (`feat/api-sessions`, `feat/ui-debrief`, `feat/ai-scorer`) and `fix/<thing>`.
-- **PRs:** small (aim for under 300 lines), one reviewer, **review within 10 minutes**. The reviewer pulls and runs anything that touches the call loop. Squash-merge. David is the default reviewer for `server/`; the DS student reviews `server/src/ai/`; David or the DS student reviews `web/`.
-- **Contracts first:** API response types live in `web/src/api/types.ts`, copied from §7. A PR that changes a shape updates these types too.
-- **Secrets:** `.env` is in `.gitignore` from commit #1; `.env.example` lists every key. Never commit keys or paste them anywhere that gets committed.
-- **Checkpoint tags:** `v0.1` (CP1), `v0.2` (CP2), `v0.3` (CP3), `demo-v1` (CP4). If `main` breaks late at night, check out the last tag and run that.
-- **Commit messages:** `feat:`, `fix:`, `chore:`, and `docs:` prefixes keep the history readable for Devpost and the README.
-
----
-
-## 13. Risks and fallbacks
+## 12. Risks and fallbacks
 
 | Risk | Likelihood | Impact | Mitigation / fallback |
 |---|---|---|---|
@@ -1050,30 +937,7 @@ From the [official schedule](https://orion.uhcode.red/): hacking began at **1:00
 
 ---
 
-## Appendix A: Interview talking points (David)
-
-Each point fits a STAR answer: **Situation** (one-day hackathon, real-time voice AI) → **Task** (own the backend and data spine) → **Action** (the decision below) → **Result** (what it enabled in the demo).
-
-1. **Choosing Node/TypeScript over Spring Boot, and how I'd port it.**
-   We optimized for time to a working demo: the vendor SDKs and streaming examples we needed exist for JS, and one language across frontend and backend let three people share types. On an enterprise team, for example an Adobe AEM project (AEM is Java-based), I'd build the same layered design in Spring Boot: `@RestController`s for the routes in §7, a service layer for the call orchestrator, `JdbcTemplate` or Spring Data JDBC running the same hand-written SQL, Bean Validation instead of Zod, and `WebClient` for streaming vendor calls. *Tradeoff:* speed and SDK ergonomics vs. type-safe enterprise structure and fitting the team's existing Java ecosystem.
-
-2. **Resource-oriented REST, with turns as a sub-resource.**
-   `POST /sessions/:id/turns` models each exchange as creating a resource. That makes it testable with curl and naturally persisted for scoring. Audio is a separate `GET .../audio` resource, so the JSON response returns right away and the browser starts playing the stream. *Tradeoff:* REST + push-to-talk is simpler to build and debug than WebSockets/full-duplex, which feels more natural but is harder to build and observe. I deliberately scoped full-duplex as a stretch goal.
-
-3. **Schema: a long-format `scores` table instead of five score columns.**
-   One row per (session, skill) makes "per-skill progress over time" a single `GROUP BY bucket, skill`, and adding a sixth skill is an insert, not a migration. A CHECK constraint keeps skill names valid. *Tradeoff:* more rows, and a pivot for some views, in exchange for flexibility and simpler analytics. I also denormalized `persona_id` and `call_number` onto `sessions` to make the callback-arc query cheap, and indexed `(trainee_id, ended_at)` for the chart.
-
-4. **Synchronous scoring now, an async job later.**
-   Scoring takes about 5–10 s, which is fine behind a "Preparing your debrief…" spinner, and it avoids a job queue on day one. All debrief writes happen in **one transaction**, so the UI never shows half a debrief. At scale I'd return `202 Accepted` with a job id, process scoring in a worker (for example, a Postgres-backed queue), and have the client poll or subscribe. *Tradeoff:* simplicity vs. resilience to slow or failed LLM calls.
-
-5. **Data isolation in AI memory, and raw SQL over an ORM.**
-   Backboard memory is scoped per assistant, so I chose **one assistant per (trainee, persona)** to keep one trainee's conversation from leaking into another trainee's callback. It's the same tenant-isolation thinking as row-level security. I also kept the SQL hand-written (`pg` + `.sql` files), so every leaderboard, window-function, and streak query is reviewable and explainable, and the database does the aggregation instead of the app. *Tradeoff:* more boilerplate and manual mapping, in exchange for full control, visible performance, and portability (the same SQL runs on TimescaleDB).
-
-*Behavioral angles:* coordinating a three-person team through API contracts and mock data; 10-minute PR reviews under time pressure; an ethics-driven product decision (no outcome-based points, opt-in leaderboard); using an AI coding agent for scaffolding while owning and reviewing the design.
-
----
-
-## Appendix B: Sources and docs
+## Appendix: Sources and docs
 
 **Crisis line training and safety**
 - 988 Lifeline Suicide Safety Policy (2024): https://988lifeline.org/wp-content/uploads/2024/09/988-Suicide-and-Crisis-Lifeline-Suicide-Safety-Policy-2024.pdf
